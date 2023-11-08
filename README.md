@@ -20,12 +20,12 @@ let
 in {
   environment.systemPackages = [ snap ];
   systemd.packages = [ snap ];
+  systemd.sockets.snapd.wantedBy = [ "sockets.target" ];
 }
 ```
 
 ## Known issues
 
-- `systemctl start snapd.socket` needs to be run before the `snap` command works
 - Mounted snaps aren't recreated after reboot
 - Running snaps requires root
 - Audio doesn't work
