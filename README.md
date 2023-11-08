@@ -10,22 +10,20 @@ Bug reports and contributions welcome!
 Make the following modification to `/etc/nixos/configuration.nix`:
 
 ``` nix
-{ pkgs, ... }:
+{ ... }:
 
-let
-  snap = pkgs.callPackage (builtins.fetchTarball {
-    url = "https://github.com/io12/nix-snapd/archive/master.tar.gz";
-  }) { };
+{
+  imports = [
+    (builtins.fetchTarball {
+      url = "https://github.com/io12/nix-snapd/archive/master.tar.gz";
+    })
+  ];
 
-in {
-  environment.systemPackages = [ snap ];
-  systemd.packages = [ snap ];
-  systemd.sockets.snapd.wantedBy = [ "sockets.target" ];
+  services.snap.enable = true;
 }
 ```
 
 ## Known issues
 
 - Mounted snaps aren't recreated after reboot
-- Running snaps requires root
 - Audio doesn't work
