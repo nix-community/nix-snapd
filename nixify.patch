@@ -1,0 +1,156 @@
+diff --git a/cmd/Makefile.am b/cmd/Makefile.am
+index e4c260bfd0..5dc547c422 100644
+--- a/cmd/Makefile.am
++++ b/cmd/Makefile.am
+@@ -95,9 +95,8 @@ fmt:: $(filter-out $(addprefix %,$(new_format)),$(foreach dir,$(subdirs),$(wildc
+ # installing a fresh copy of snap confine and the appropriate apparmor profile.
+ .PHONY: hack
+ hack: snap-confine/snap-confine-debug snap-confine/snap-confine.apparmor snap-update-ns/snap-update-ns snap-seccomp/snap-seccomp snap-discard-ns/snap-discard-ns snap-device-helper/snap-device-helper snapd-apparmor/snapd-apparmor
+-	sudo install -D -m 4755 snap-confine/snap-confine-debug $(DESTDIR)$(libexecdir)/snap-confine
++	sudo install -D -m 755 snap-confine/snap-confine-debug $(DESTDIR)$(libexecdir)/snap-confine
+ 	if [ -d /etc/apparmor.d ]; then sudo install -m 644 snap-confine/snap-confine.apparmor $(DESTDIR)/etc/apparmor.d/$(patsubst .%,%,$(subst /,.,$(libexecdir))).snap-confine.real; fi
+-	sudo install -d -m 755 $(DESTDIR)/var/lib/snapd/apparmor/snap-confine/
+ 	if [ "$$(command -v apparmor_parser)" != "" ]; then sudo apparmor_parser -r snap-confine/snap-confine.apparmor; fi
+ 	sudo install -m 755 snap-update-ns/snap-update-ns $(DESTDIR)$(libexecdir)/snap-update-ns
+ 	sudo install -m 755 snap-discard-ns/snap-discard-ns $(DESTDIR)$(libexecdir)/snap-discard-ns
+@@ -390,15 +389,13 @@ if APPARMOR
+ 	install -d -m 755 $(DESTDIR)/etc/apparmor.d/
+ 	install -m 644 snap-confine/snap-confine.apparmor $(DESTDIR)/etc/apparmor.d/$(patsubst .%,%,$(subst /,.,$(libexecdir))).snap-confine
+ endif
+-	install -d -m 755 $(DESTDIR)/var/lib/snapd/apparmor/snap-confine/
+ 
+ # NOTE: The 'void' directory *has to* be chmod 111
+ install-data-local::
+-	install -d -m 111 $(DESTDIR)/var/lib/snapd/void
+ 
+ install-exec-hook::
+ # Ensure that snap-confine is u+s (setuid)
+-	chmod 4755 $(DESTDIR)$(libexecdir)/snap-confine
++	chmod 755 $(DESTDIR)$(libexecdir)/snap-confine
+ 
+ ##
+ ## snap-mgmt
+diff --git a/cmd/libsnap-confine-private/utils.c b/cmd/libsnap-confine-private/utils.c
+index 635538a3da..4482d52b59 100644
+--- a/cmd/libsnap-confine-private/utils.c
++++ b/cmd/libsnap-confine-private/utils.c
+@@ -242,7 +242,7 @@ int sc_nonfatal_mkpath(const char *const path, mode_t mode)
+ bool sc_is_expected_path(const char *path)
+ {
+ 	const char *expected_path_re =
+-	    "^(/snap/(snapd|core)/x?[0-9]+/usr/lib|/usr/lib(exec)?)/snapd/snap-confine$";
++	    "^(/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine$";
+ 	regex_t re;
+ 	if (regcomp(&re, expected_path_re, REG_EXTENDED | REG_NOSUB) != 0)
+ 		die("can not compile regex %s", expected_path_re);
+diff --git a/cmd/snap-confine/mount-support.c b/cmd/snap-confine/mount-support.c
+index b4cc1b410a..fa0f6422b9 100644
+--- a/cmd/snap-confine/mount-support.c
++++ b/cmd/snap-confine/mount-support.c
+@@ -964,7 +964,7 @@ void sc_populate_mount_ns(struct sc_apparmor *apparmor, int snap_update_ns_fd,
+ 			{.path = "/run"},	// to get /run with sockets and what not
+ 			{.path = "/lib/modules",.is_optional = true},	// access to the modules of the running kernel
+ 			{.path = "/lib/firmware",.is_optional = true},	// access to the firmware of the running kernel
+-			{.path = "/usr/src"},	// FIXME: move to SecurityMounts in system-trace interface
++			{.path = "/usr/src",.is_optional = true},	// FIXME: move to SecurityMounts in system-trace interface
+ 			{.path = "/var/log"},	// FIXME: move to SecurityMounts in log-observe interface
+ #ifdef MERGED_USR
+ 			{.path = "/run/media", .is_bidirectional = true, .altpath = "/media"},	// access to the users removable devices
+diff --git a/dirs/dirs.go b/dirs/dirs.go
+index d662937840..7b370de860 100644
+--- a/dirs/dirs.go
++++ b/dirs/dirs.go
+@@ -296,7 +296,7 @@ func SnapSystemdConfDirUnder(rootdir string) string {
+ // SnapSystemdConfDirUnder returns the path to the systemd conf dir under
+ // rootdir.
+ func SnapServicesDirUnder(rootdir string) string {
+-	return filepath.Join(rootdir, "/etc/systemd/system")
++	return filepath.Join(rootdir, "/var/lib/snapd/nix-systemd-system")
+ }
+ 
+ // SnapBootAssetsDirUnder returns the path to boot assets directory under a
+@@ -429,14 +429,14 @@ func SetRootDir(rootdir string) {
+ 	SnapRollbackDir = filepath.Join(rootdir, snappyDir, "rollback")
+ 
+ 	SnapBinariesDir = filepath.Join(SnapMountDir, "bin")
+-	SnapServicesDir = filepath.Join(rootdir, "/etc/systemd/system")
++	SnapServicesDir = filepath.Join(rootdir, "/var/lib/snapd/nix-systemd-system")
+ 	SnapRuntimeServicesDir = filepath.Join(rootdir, "/run/systemd/system")
+ 	SnapUserServicesDir = filepath.Join(rootdir, "/etc/systemd/user")
+ 	SnapSystemdConfDir = SnapSystemdConfDirUnder(rootdir)
+ 	SnapSystemdDir = filepath.Join(rootdir, "/etc/systemd")
+ 	SnapSystemdRunDir = filepath.Join(rootdir, "/run/systemd")
+ 
+-	SnapDBusSystemPolicyDir = filepath.Join(rootdir, "/etc/dbus-1/system.d")
++	SnapDBusSystemPolicyDir = filepath.Join(rootdir, "/tmp/snap-dbus-system")
+ 	SnapDBusSessionPolicyDir = filepath.Join(rootdir, "/etc/dbus-1/session.d")
+ 	// Use 'dbus-1/services' and `dbus-1/system-services' to mirror
+ 	// '/usr/share/dbus-1' hierarchy.
+@@ -447,7 +447,7 @@ func SetRootDir(rootdir string) {
+ 
+ 	CloudInstanceDataFile = filepath.Join(rootdir, "/run/cloud-init/instance-data.json")
+ 
+-	SnapUdevRulesDir = filepath.Join(rootdir, "/etc/udev/rules.d")
++	SnapUdevRulesDir = filepath.Join(rootdir, "/tmp/snap-udev-rules")
+ 
+ 	SnapKModModulesDir = filepath.Join(rootdir, "/etc/modules-load.d/")
+ 	SnapKModModprobeDir = filepath.Join(rootdir, "/etc/modprobe.d/")
+@@ -479,7 +479,7 @@ func SetRootDir(rootdir string) {
+ 		// both RHEL and CentOS list "fedora" in ID_LIKE
+ 		DistroLibExecDir = filepath.Join(rootdir, "/usr/libexec/snapd")
+ 	} else {
+-		DistroLibExecDir = filepath.Join(rootdir, "/usr/lib/snapd")
++		DistroLibExecDir = filepath.Join(rootdir, "@out@/libexec/snapd")
+ 	}
+ 
+ 	XdgRuntimeDirBase = filepath.Join(rootdir, "/run/user")
+diff --git a/systemd/systemd.go b/systemd/systemd.go
+index b19e1414ab..dfd1ae35d7 100644
+--- a/systemd/systemd.go
++++ b/systemd/systemd.go
+@@ -576,6 +576,15 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+ 	if len(serviceNames) == 0 {
+ 		return nil
+ 	}
++	for _, serviceName := range serviceNames {
++		err := os.Symlink(
++			filepath.Join(dirs.SnapServicesDir, serviceName),
++			filepath.Join(dirs.SnapRuntimeServicesDir, serviceName),
++		);
++		if err != nil {
++			return err
++		}
++	}
+ 	var args []string
+ 	if s.rootDir != "" {
+ 		// passing root already implies no reload
+@@ -583,6 +592,7 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+ 	} else {
+ 		args = append(args, "--no-reload")
+ 	}
++	args = append(args, "--runtime")
+ 	args = append(args, "enable")
+ 	args = append(args, serviceNames...)
+ 	_, err := s.systemctl(args...)
+@@ -608,7 +618,7 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+ 		// passing root already implies no reload
+ 		args = append(args, "--root", s.rootDir)
+ 	} else {
+-		args = append(args, "--no-reload")
++		args = append(args, "--no-reload", "--runtime")
+ 	}
+ 	args = append(args, "disable")
+ 	args = append(args, serviceNames...)
+diff --git a/wrappers/binaries.go b/wrappers/binaries.go
+index 5f88b3aff8..ca2c187b87 100644
+--- a/wrappers/binaries.go
++++ b/wrappers/binaries.go
+@@ -220,7 +220,7 @@ func EnsureSnapBinaries(s *snap.Info) (err error) {
+ 		}
+ 
+ 		appBase := filepath.Base(app.WrapperPath())
+-		binariesContent[appBase] = &osutil.SymlinkFileState{Target: "/usr/bin/snap"}
++		binariesContent[appBase] = &osutil.SymlinkFileState{Target: "@out@/bin/snap"}
+ 
+ 		if completionVariant != noCompletion && app.Completer != "" {
+ 			completersContent[appBase] = &osutil.SymlinkFileState{Target: completeSh}

@@ -25,5 +25,4 @@ Make the following modification to `/etc/nixos/configuration.nix`:
 
 ## Known issues
 
-- Mounted snaps aren't recreated after reboot
 - Audio doesn't work

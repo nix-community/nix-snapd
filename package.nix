@@ -37,27 +37,11 @@ let
       udev
     ];
 
-    patchPhase = ''
-      substituteInPlace dirs/dirs.go \
-        --replace '"/etc/systemd/system"' '"/run/systemd/system"' \
-        --replace '"/etc/dbus-1/system.d"' '"/tmp/snap-dbus-system"' \
-        --replace '"/etc/udev/rules.d"' '"/tmp/snap-udev-rules"' \
-        --replace '"/usr/lib/snapd")' "\"$out/libexec/snapd\")"
-      substituteInPlace systemd/systemd.go \
-        --replace '--no-reload' '--runtime'
-      substituteInPlace wrappers/binaries.go \
-        --replace '"/usr/bin/snap"' "\"$out/bin/snap\""
-      substituteInPlace cmd/Makefile.am \
-        --replace ' 4755 ' ' 755 ' \
-        --replace 'install -d -m 755 $(DESTDIR)/var/lib/snapd/apparmor/snap-confine/' 'true' \
-        --replace 'install -d -m 111 $(DESTDIR)/var/lib/snapd/void' 'true'
-      substituteInPlace cmd/libsnap-confine-private/utils.c \
-        --replace 'status == 0' '1'
-      substituteInPlace cmd/snap-confine/mount-support.c \
-        --replace '"/usr/src"' '"/usr/src",.is_optional = true'
-    '';
+    patches = [ ./nixify.patch ];
 
     configurePhase = ''
+      substituteInPlace $(grep -rl '@out@') --subst-var 'out'
+
       export GOCACHE=$TMPDIR/go-cache
 
       ln -s ${goModules} vendor
@@ -131,10 +115,32 @@ let
     '';
 
     postFixup = ''
-      wrapProgram $out/libexec/snapd/snapd --set SNAPD_DEBUG 1 --set PATH $out/bin:${
-        pkgs.lib.makeBinPath
-        (with pkgs; [ util-linux.mount squashfsTools systemd openssh ])
-      }
+      wrapProgram $out/libexec/snapd/snapd \
+        --set SNAPD_DEBUG 1 \
+        --set PATH $out/bin:${
+          pkgs.lib.makeBinPath (with pkgs; [
+            util-linux.mount
+            squashfsTools
+            systemd
+            openssh
+            coreutils
+          ])
+        } \
+        --run ${
+          pkgs.lib.strings.escapeShellArg ''
+            set -uex
+            shopt -s nullglob
+            for path in /var/lib/snapd/nix-systemd-system/*; do
+              name="$(basename "$path")"
+              if ! systemctl is-active --quiet "$name"; then
+                rtpath="/run/systemd/system/$name"
+                ln -fs "$path" "$rtpath"
+                systemctl start "$name"
+                rm -f "$rtpath"
+              fi
+            done
+          ''
+        }
 
       ${pkgs.lib.optionalString (builtins.isString snapConfineWrapper) ''
         mv $out/libexec/snapd/{,.}snap-confine
