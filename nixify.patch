@@ -121,7 +121,7 @@ index 020c4a9b3d..c8d32048b5 100644
  
  // LauncherCommand returns the launcher command line to use when invoking the
 diff --git a/systemd/systemd.go b/systemd/systemd.go
-index b19e1414ab..7984737b7b 100644
+index b19e1414ab..90aa2bf4c3 100644
 --- a/systemd/systemd.go
 +++ b/systemd/systemd.go
 @@ -576,6 +576,14 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
@@ -147,7 +147,7 @@ index b19e1414ab..7984737b7b 100644
  	args = append(args, "enable")
  	args = append(args, serviceNames...)
  	_, err := s.systemctl(args...)
-@@ -603,12 +612,20 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+@@ -603,6 +612,14 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
  	if len(serviceNames) == 0 {
  		return nil
  	}
@@ -162,13 +162,14 @@ index b19e1414ab..7984737b7b 100644
  	var args []string
  	if s.rootDir != "" {
  		// passing root already implies no reload
- 		args = append(args, "--root", s.rootDir)
+@@ -610,6 +627,7 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
  	} else {
--		args = append(args, "--no-reload")
-+		args = append(args, "--no-reload", "--runtime")
+ 		args = append(args, "--no-reload")
  	}
++	args = append(args, "--runtime")
  	args = append(args, "disable")
  	args = append(args, serviceNames...)
+ 	_, err := s.systemctl(args...)
 diff --git a/wrappers/binaries.go b/wrappers/binaries.go
 index 5f88b3aff8..ca2c187b87 100644
 --- a/wrappers/binaries.go
