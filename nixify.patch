@@ -104,6 +104,22 @@ index d662937840..da810ec65d 100644
  	}
  
  	XdgRuntimeDirBase = filepath.Join(rootdir, "/run/user")
+diff --git a/snap/info.go b/snap/info.go
+index 020c4a9b3d..c8d32048b5 100644
+--- a/snap/info.go
++++ b/snap/info.go
+@@ -1181,9 +1181,9 @@ func (app *AppInfo) launcherCommand(command string) string {
+ 		command = " " + command
+ 	}
+ 	if app.Name == app.Snap.SnapName() {
+-		return fmt.Sprintf("/usr/bin/snap run%s %s", command, app.Snap.InstanceName())
++		return fmt.Sprintf("@out@/bin/snap run%s %s", command, app.Snap.InstanceName())
+ 	}
+-	return fmt.Sprintf("/usr/bin/snap run%s %s.%s", command, app.Snap.InstanceName(), app.Name)
++	return fmt.Sprintf("@out@/bin/snap run%s %s.%s", command, app.Snap.InstanceName(), app.Name)
+ }
+ 
+ // LauncherCommand returns the launcher command line to use when invoking the
 diff --git a/systemd/systemd.go b/systemd/systemd.go
 index b19e1414ab..7984737b7b 100644
 --- a/systemd/systemd.go
