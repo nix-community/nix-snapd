@@ -57,7 +57,7 @@ index b4cc1b410a..fa0f6422b9 100644
  #ifdef MERGED_USR
  			{.path = "/run/media", .is_bidirectional = true, .altpath = "/media"},	// access to the users removable devices
 diff --git a/dirs/dirs.go b/dirs/dirs.go
-index d662937840..7b370de860 100644
+index d662937840..da810ec65d 100644
 --- a/dirs/dirs.go
 +++ b/dirs/dirs.go
 @@ -296,7 +296,7 @@ func SnapSystemdConfDirUnder(rootdir string) string {
@@ -105,26 +105,25 @@ index d662937840..7b370de860 100644
  
  	XdgRuntimeDirBase = filepath.Join(rootdir, "/run/user")
 diff --git a/systemd/systemd.go b/systemd/systemd.go
-index b19e1414ab..dfd1ae35d7 100644
+index b19e1414ab..7984737b7b 100644
 --- a/systemd/systemd.go
 +++ b/systemd/systemd.go
-@@ -576,6 +576,15 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+@@ -576,6 +576,14 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
  	if len(serviceNames) == 0 {
  		return nil
  	}
 +	for _, serviceName := range serviceNames {
-+		err := os.Symlink(
-+			filepath.Join(dirs.SnapServicesDir, serviceName),
-+			filepath.Join(dirs.SnapRuntimeServicesDir, serviceName),
-+		);
-+		if err != nil {
++		servicePath := filepath.Join(dirs.SnapServicesDir, serviceName)
++		serviceRuntimePath := filepath.Join(dirs.SnapRuntimeServicesDir, serviceName)
++		os.Remove(serviceRuntimePath)
++		if err := os.Symlink(servicePath, serviceRuntimePath); err != nil {
 +			return err
 +		}
 +	}
  	var args []string
  	if s.rootDir != "" {
  		// passing root already implies no reload
-@@ -583,6 +592,7 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+@@ -583,6 +591,7 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
  	} else {
  		args = append(args, "--no-reload")
  	}
@@ -132,7 +131,20 @@ index b19e1414ab..dfd1ae35d7 100644
  	args = append(args, "enable")
  	args = append(args, serviceNames...)
  	_, err := s.systemctl(args...)
-@@ -608,7 +618,7 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+@@ -603,12 +612,20 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+ 	if len(serviceNames) == 0 {
+ 		return nil
+ 	}
++	for _, serviceName := range serviceNames {
++		servicePath := filepath.Join(dirs.SnapServicesDir, serviceName)
++		serviceRuntimePath := filepath.Join(dirs.SnapRuntimeServicesDir, serviceName)
++		os.Remove(serviceRuntimePath)
++		if err := os.Symlink(servicePath, serviceRuntimePath); err != nil {
++			return err
++		}
++	}
+ 	var args []string
+ 	if s.rootDir != "" {
  		// passing root already implies no reload
  		args = append(args, "--root", s.rootDir)
  	} else {
