@@ -123,6 +123,8 @@ let
             squashfsTools
             systemd
             openssh
+            gnutar
+            gzip
             coreutils
           ])
         } \
