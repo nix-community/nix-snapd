@@ -23,7 +23,6 @@ in nixos-lib.runTest {
     services.snap.enable = true;
   };
   testScript = ''
-    machine.wait_for_unit("default.target")
     assert machine.succeed("whoami") == "root\n"
 
     try:
@@ -38,11 +37,17 @@ in nixos-lib.runTest {
 
     install("core_16202")
     install("core18_2796")
-
     install("hello-world_29")
-    assert machine.succeed("/snap/bin/hello-world") == "Hello World!\n"
-
     install("ripgrep_9", classic=True)
-    assert "ripgrep 12.1.0" in machine.succeed("/snap/bin/rg --version")
+
+    def run():
+      assert machine.succeed("/snap/bin/hello-world") == "Hello World!\n"
+      assert "ripgrep 12.1.0" in machine.succeed("/snap/bin/rg --version")
+
+    run()
+    machine.crash()
+    run()
+    machine.shutdown()
+    run()
   '';
 }
