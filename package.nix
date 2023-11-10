@@ -145,7 +145,7 @@ let
         }
 
       ${pkgs.lib.optionalString (builtins.isString snapConfineWrapper) ''
-        mv $out/libexec/snapd/{,.}snap-confine
+        mv $out/libexec/snapd/snap-confine{,-unwrapped}
         ln -s ${snapConfineWrapper} $out/libexec/snapd/snap-confine
       ''}
     '';

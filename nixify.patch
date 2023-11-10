@@ -31,7 +31,7 @@ index e4c260bfd0..5dc547c422 100644
  ##
  ## snap-mgmt
 diff --git a/cmd/libsnap-confine-private/utils.c b/cmd/libsnap-confine-private/utils.c
-index 635538a3da..4482d52b59 100644
+index 635538a3da..b0b75e936c 100644
 --- a/cmd/libsnap-confine-private/utils.c
 +++ b/cmd/libsnap-confine-private/utils.c
 @@ -242,7 +242,7 @@ int sc_nonfatal_mkpath(const char *const path, mode_t mode)
@@ -39,7 +39,7 @@ index 635538a3da..4482d52b59 100644
  {
  	const char *expected_path_re =
 -	    "^(/snap/(snapd|core)/x?[0-9]+/usr/lib|/usr/lib(exec)?)/snapd/snap-confine$";
-+	    "^(/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine$";
++	    "^(/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine(-unwrapped)?$";
  	regex_t re;
  	if (regcomp(&re, expected_path_re, REG_EXTENDED | REG_NOSUB) != 0)
  		die("can not compile regex %s", expected_path_re);

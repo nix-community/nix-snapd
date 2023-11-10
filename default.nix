@@ -16,7 +16,7 @@ in {
       setuid = true;
       owner = "root";
       group = "root";
-      source = "${snap}/libexec/snapd/.snap-confine";
+      source = "${snap}/libexec/snapd/snap-confine-unwrapped";
     };
   };
 }
