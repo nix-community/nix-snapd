@@ -132,6 +132,12 @@ let
           pkgs.lib.strings.escapeShellArg ''
             set -uex
             shopt -s nullglob
+
+            # Needed if the first install is from a local file,
+            # so this is needed for the tests.
+            # It might be a snapd bug that this isn't created.
+            mkdir -p /var/lib/snapd/snaps
+
             for path in /var/lib/snapd/nix-systemd-system/*; do
               name="$(basename "$path")"
               if ! systemctl is-active --quiet "$name"; then
