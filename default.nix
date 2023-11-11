@@ -1,6 +1,8 @@
 { config, lib, pkgs, ... }:
 
 let
+  cfg = config.services.snap;
+
   snap = pkgs.callPackage ./package.nix {
     snapConfineWrapper = "${config.security.wrapperDir}/snap-confine";
   };
@@ -8,7 +10,7 @@ let
 in {
   options.services.snap.enable = lib.mkEnableOption "snap service";
 
-  config = {
+  config = lib.mkIf cfg.enable {
     environment.systemPackages = [ snap ];
     systemd.packages = [ snap ];
     systemd.sockets.snapd.wantedBy = [ "sockets.target" ];
