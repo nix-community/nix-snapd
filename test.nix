@@ -64,8 +64,7 @@ in (import <nixpkgs/nixos/lib> { }).runTest {
       assert "ripgrep 12.1.0" in machine.succeed("/snap/bin/rg --version")
 
       machine.wait_for_x()
-      for u in ("root", "alice"):
-        machine.succeed(f"su - alice -c '${pkgs.xorg.xhost}/bin/xhost si:localuser:{u}'")
+      machine.succeed("su - alice -c '${pkgs.xorg.xhost}/bin/xhost si:localuser:alice'")
       assert "Basic" not in machine.get_screen_text()
       machine.execute("su - alice -c /snap/bin/gnome-calculator >&2 &")
       machine.wait_for_text("Basic")
