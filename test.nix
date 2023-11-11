@@ -3,6 +3,8 @@ let
 
   snap = pkgs.callPackage ./package.nix { };
 
+  # Download tested snaps with a fixed-output derivation because the test runner
+  # normally doesn't have internet access
   downloadedSnaps = pkgs.runCommand "downloaded-snaps" {
     buildInputs = [ snap pkgs.squashfsTools ];
     outputHashMode = "recursive";
@@ -39,7 +41,7 @@ in (import <nixpkgs/nixos/lib> { }).runTest {
   enableOCR = true;
 
   testScript = ''
-    assert machine.succeed("whoami") == "root\n"
+    # Check version
     assert "${snap.version}" in machine.succeed("snap --version")
 
     machine.execute("snap list")
@@ -49,6 +51,7 @@ in (import <nixpkgs/nixos/lib> { }).runTest {
       machine.succeed(f"snap ack ${downloadedSnaps}/{name_rev}.assert")
       machine.succeed(f"snap install {classic} ${downloadedSnaps}/{name_rev}.snap")
 
+    # Install snaps
     install("core_16202")
     install("core18_2796")
     install("core22_864")
@@ -63,6 +66,7 @@ in (import <nixpkgs/nixos/lib> { }).runTest {
       assert machine.succeed("/snap/bin/hello-world") == "Hello World!\n"
       assert "ripgrep 12.1.0" in machine.succeed("/snap/bin/rg --version")
 
+      # Test gnome-calculator snap
       machine.wait_for_x()
       machine.succeed("su - alice -c '${pkgs.xorg.xhost}/bin/xhost si:localuser:alice'")
       assert "Basic" not in machine.get_screen_text()
@@ -71,10 +75,15 @@ in (import <nixpkgs/nixos/lib> { }).runTest {
       assert "Basic" in machine.get_screen_text()
       machine.screenshot("gnome-calculator")
 
+    # Ensure programs run after a crash or clean reboot
     run()
     machine.crash()
     run()
     machine.shutdown()
     run()
+
+    # Ensure uninstalling snaps works
+    machine.succeed("snap remove hello-world")
+    machine.fail("/snap/bin/hello-world")
   '';
 }
