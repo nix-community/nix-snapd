@@ -56,6 +56,34 @@ index b4cc1b410a..fa0f6422b9 100644
  			{.path = "/var/log"},	// FIXME: move to SecurityMounts in log-observe interface
  #ifdef MERGED_USR
  			{.path = "/run/media", .is_bidirectional = true, .altpath = "/media"},	// access to the users removable devices
+diff --git a/cmd/snap-confine/seccomp-support.c b/cmd/snap-confine/seccomp-support.c
+index 7432d79cb1..ddff4d3132 100644
+--- a/cmd/snap-confine/seccomp-support.c
++++ b/cmd/snap-confine/seccomp-support.c
+@@ -57,10 +57,6 @@ static void validate_path_has_strict_perms(const char *path)
+ 		die("%s not root-owned %i:%i", path, stat_buf.st_uid,
+ 		    stat_buf.st_gid);
+ 	}
+-
+-	if (stat_buf.st_mode & S_IWOTH) {
+-		die("%s has 'other' write %o", path, stat_buf.st_mode);
+-	}
+ }
+ 
+ static void validate_bpfpath_is_safe(const char *path)
+diff --git a/cmd/snap-confine/snap-confine.c b/cmd/snap-confine/snap-confine.c
+index b735a100f7..78aac63e8a 100644
+--- a/cmd/snap-confine/snap-confine.c
++++ b/cmd/snap-confine/snap-confine.c
+@@ -421,7 +421,7 @@ int main(int argc, char **argv)
+ 		 * one, which definitely doesn't run in a snap-specific namespace, has a
+ 		 * predictable PID and is long lived.
+ 		 */
++		// NIX PATCH: Don't try to escape the FHS environment
+-		sc_reassociate_with_pid1_mount_ns();
+ 		// Do global initialization:
+ 		int global_lock_fd = sc_lock_global();
+ 		// Ensure that "/" or "/snap" is mounted with the
 diff --git a/dirs/dirs.go b/dirs/dirs.go
 index d662937840..da810ec65d 100644
 --- a/dirs/dirs.go
@@ -104,6 +132,28 @@ index d662937840..da810ec65d 100644
  	}
  
  	XdgRuntimeDirBase = filepath.Join(rootdir, "/run/user")
+diff --git a/interfaces/system_key.go b/interfaces/system_key.go
+index 008637492a..f4c3a42875 100644
+--- a/interfaces/system_key.go
++++ b/interfaces/system_key.go
+@@ -104,7 +104,7 @@ func generateSystemKey() (*systemKey, error) {
+ 	sk := &systemKey{
+ 		Version: systemKeyVersion,
+ 	}
+-	snapdPath, err := snapdtool.InternalToolPath("snapd")
++	snapdPath, err := snapdtool.InternalToolPath("snapd-unwrapped")
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -250,7 +250,7 @@ func SystemKeyMismatch() (bool, error) {
+ 	if mockedSystemKey == nil {
+ 		if exe, err := os.Readlink("/proc/self/exe"); err == nil {
+ 			// detect running local local builds
+-			if !strings.HasPrefix(exe, "/usr") && !strings.HasPrefix(exe, "/snap") {
++			if !strings.HasPrefix(exe, "/usr") && !strings.HasPrefix(exe, "/snap") && !strings.HasPrefix(exe, "@out@") {
+ 				logger.Noticef("running from non-installed location %s: ignoring system-key", exe)
+ 				return false, ErrSystemKeyVersion
+ 			}
 diff --git a/snap/info.go b/snap/info.go
 index 020c4a9b3d..c8d32048b5 100644
 --- a/snap/info.go
@@ -183,3 +233,16 @@ index 5f88b3aff8..ca2c187b87 100644
  
  		if completionVariant != noCompletion && app.Completer != "" {
  			completersContent[appBase] = &osutil.SymlinkFileState{Target: completeSh}
+diff --git a/wrappers/services.go b/wrappers/services.go
+index 0af94114f3..b15c0743a7 100644
+--- a/wrappers/services.go
++++ b/wrappers/services.go
+@@ -1236,6 +1236,8 @@ TimeoutStopSec={{.StopTimeout.Seconds}}
+ TimeoutStartSec={{.StartTimeout.Seconds}}
+ {{- end}}
+ Type={{.App.Daemon}}
++# NIX PATCH: This is needed because nixpkgs's chrootenv runs the code in a child process
++NotifyAccess=all
+ {{- if .Remain}}
+ RemainAfterExit={{.Remain}}
+ {{- end}}

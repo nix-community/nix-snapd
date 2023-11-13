@@ -16,6 +16,29 @@ let
     vendorHash = "sha256-DuvmnYl6ATBknSNzTCCyzYlLA0h+qo7ZmAED0mwIJkY=";
   }).goModules;
 
+  env = pkgs.buildFHSEnvChroot {
+    name = "snap-env";
+    targetPkgs = pkgs:
+      (with pkgs; [
+        # Snapd calls
+        util-linux.mount
+        squashfsTools
+        systemd
+        openssh
+        gnutar
+        gzip
+        # TODO: xdelta
+
+        # Snap hook calls
+        bash
+        sudo
+        gawk
+
+        # Mount wrapper calls
+        coreutils
+      ]);
+  };
+
 in pkgs.stdenv.mkDerivation {
   pname = "snap";
   inherit version src;
@@ -117,6 +140,49 @@ in pkgs.stdenv.mkDerivation {
   '';
 
   postFixup = ''
+    mv $out/libexec/snapd/snap-confine{,-unwrapped}
+
+    ${if builtins.isNull snapConfineWrapper then
+      "ln -s snap-confine-stage-1 $out/libexec/snapd/snap-confine"
+    else
+      "ln -s ${snapConfineWrapper} $out/libexec/snapd/snap-confine"}
+
+    cat > $out/libexec/snapd/snap-confine-stage-1 << EOL
+    #!${pkgs.python3}/bin/python3
+    import sys, os
+    uid = os.getuid()
+    gid = os.getgid()
+    os.setuid(0)
+    os.setgid(0)
+    os.execv(
+      "${env}/bin/snap-env",
+      [
+        "${env}/bin/snap-env",
+        "-c",
+        " ".join([
+          "exec",
+          "@out@/libexec/snapd/snap-confine-stage-2",
+          str(uid),
+          str(gid),
+          "@out@/libexec/snapd/snap-confine-unwrapped",
+        ] + sys.argv[1:]),
+      ],
+    )
+    EOL
+    substituteInPlace $out/libexec/snapd/snap-confine-stage-1 --subst-var 'out'
+    chmod +x $out/libexec/snapd/snap-confine-stage-1
+
+    cat > $out/libexec/snapd/snap-confine-stage-2 << EOL
+    #!${pkgs.python3}/bin/python3
+    import sys, os
+    os.setresuid(int(sys.argv[1]), 0, 0)
+    os.setresgid(int(sys.argv[2]), 0, 0)
+    os.environ["PATH"] += ":@out@/bin"
+    os.execv(sys.argv[3], sys.argv[3:])
+    EOL
+    substituteInPlace $out/libexec/snapd/snap-confine-stage-? --subst-var 'out'
+    chmod +x $out/libexec/snapd/snap-confine-stage-2
+
     wrapProgram $out/libexec/snapd/snapd \
       --set SNAPD_DEBUG 1 \
       --set PATH $out/bin:${
@@ -144,10 +210,9 @@ in pkgs.stdenv.mkDerivation {
           set -uex
           shopt -s nullglob
 
-          # Needed if the first install is from a local file,
-          # so this is needed for the tests.
-          # It might be a snapd bug that this isn't created.
-          mkdir -p /var/lib/snapd/snaps
+          # Pre-create directories
+          install -dm755 /var/lib/snapd/snaps
+          install -dm111 /var/lib/snapd/void
 
           # Upstream snapd writes unit files to /etc/systemd/system, which is
           # immutable on NixOS. This package works around that by patching snapd
@@ -166,16 +231,16 @@ in pkgs.stdenv.mkDerivation {
               rm -f "$rtpath"
             fi
           done
+
+          # Make /snap/bin symlinks not point inside /nix/store,
+          # so they don't point to an old version of snap
+          for f in /snap/bin/*; do
+            if [[ "$(readlink "$f")" = /nix/store/* ]]; then
+              rm -f "$f"
+              ln -s /run/current-system/sw/bin/snap "$f"
+            fi
+          done
         ''
       }
-
-    ${pkgs.lib.optionalString (builtins.isString snapConfineWrapper) ''
-      # The snap-confine program should have the setuid bit set, but the Nix
-      # store doesn't allow setuid executables.  Allow the user of this package
-      # to specify a setuid wrapper for snap-confine.
-
-      mv $out/libexec/snapd/snap-confine{,-unwrapped}
-      ln -s ${snapConfineWrapper} $out/libexec/snapd/snap-confine
-    ''}
   '';
 }

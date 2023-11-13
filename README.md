@@ -25,5 +25,4 @@ Make the following modification to `/etc/nixos/configuration.nix`:
 
 ## Known issues
 
-- Some classic snaps such as microk8s assume FHS, for example by using `#!/bin/bash` in shell scripts
 - Audio doesn't work
