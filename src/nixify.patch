@@ -110,7 +110,7 @@ index d662937840..da810ec65d 100644
  	SnapSystemdRunDir = filepath.Join(rootdir, "/run/systemd")
  
 -	SnapDBusSystemPolicyDir = filepath.Join(rootdir, "/etc/dbus-1/system.d")
-+	SnapDBusSystemPolicyDir = filepath.Join(rootdir, "/tmp/snap-dbus-system")
++	SnapDBusSystemPolicyDir = filepath.Join(rootdir, "/var/lib/snapd/nix-dbus-system")
  	SnapDBusSessionPolicyDir = filepath.Join(rootdir, "/etc/dbus-1/session.d")
  	// Use 'dbus-1/services' and `dbus-1/system-services' to mirror
  	// '/usr/share/dbus-1' hierarchy.
@@ -119,7 +119,7 @@ index d662937840..da810ec65d 100644
  	CloudInstanceDataFile = filepath.Join(rootdir, "/run/cloud-init/instance-data.json")
  
 -	SnapUdevRulesDir = filepath.Join(rootdir, "/etc/udev/rules.d")
-+	SnapUdevRulesDir = filepath.Join(rootdir, "/tmp/snap-udev-rules")
++	SnapUdevRulesDir = filepath.Join(rootdir, "/var/lib/snapd/nix-udev-rules")
  
  	SnapKModModulesDir = filepath.Join(rootdir, "/etc/modules-load.d/")
  	SnapKModModprobeDir = filepath.Join(rootdir, "/etc/modprobe.d/")
