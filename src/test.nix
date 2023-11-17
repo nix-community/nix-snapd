@@ -54,6 +54,12 @@ in nixos-lib.runTest {
       machine.succeed(f"snap ack ${downloadedSnaps}/{name_rev}.assert")
       machine.succeed(f"snap install {classic} ${downloadedSnaps}/{name_rev}.snap")
 
+    # Ensure snap programs aren't already installed
+    machine.fail("hello-world")
+    machine.fail("rg --version")
+    machine.fail("microk8s version")
+    machine.fail("gnome-calculator")
+
     # Install snaps
     install("core_16202")
     install("core18_2796")
@@ -70,16 +76,16 @@ in nixos-lib.runTest {
     def run():
       machine.wait_for_unit("snapd.service")
 
-      assert machine.succeed("/snap/bin/hello-world") == "Hello World!\n"
-      assert "ripgrep 12.1.0" in machine.succeed("/snap/bin/rg --version")
-      assert machine.succeed("/snap/bin/microk8s version") == "MicroK8s v1.28.3 revision 6089\n"
+      assert machine.succeed("hello-world") == "Hello World!\n"
+      assert "ripgrep 12.1.0" in machine.succeed("rg --version")
+      assert machine.succeed("microk8s version") == "MicroK8s v1.28.3 revision 6089\n"
 
       # Test gnome-calculator snap
       machine.wait_for_x()
       machine.succeed("su - alice -c '${pkgs.xorg.xhost}/bin/xhost si:localuser:alice'")
       machine.succeed("su - alice -c '${pkgs.xorg.xhost}/bin/xhost si:localuser:root'")
       assert "Basic" not in machine.get_screen_text()
-      machine.execute("su - alice -c /snap/bin/gnome-calculator >&2 &")
+      machine.execute("su - alice -c gnome-calculator >&2 &")
       machine.wait_for_text("Basic")
       assert "Basic" in machine.get_screen_text()
       machine.screenshot("gnome-calculator")
@@ -93,6 +99,6 @@ in nixos-lib.runTest {
 
     # Ensure uninstalling snaps works
     machine.succeed("snap remove hello-world")
-    machine.fail("/snap/bin/hello-world")
+    machine.fail("hello-world")
   '';
 }

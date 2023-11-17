@@ -10,15 +10,29 @@ let
   };
 
 in {
-  options.services.snap.enable = lib.mkEnableOption "snap service";
+  options.services.snap = {
+    enable = lib.mkEnableOption "snap service";
+    snapBinInPath = lib.mkOption {
+      default = true;
+      example = false;
+      description = "Include /snap/bin in PATH.";
+      type = lib.types.bool;
+    };
+  };
 
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [ snap ];
+
+    environment.extraInit = lib.optionalString cfg.snapBinInPath ''
+      export PATH="/snap/bin:$PATH"
+    '';
+
     systemd = {
       packages = [ snap ];
       sockets.snapd.wantedBy = [ "sockets.target" ];
       services.snapd.wantedBy = [ "multi-user.target" ];
     };
+
     security.wrappers.snap-confine-stage-1 = {
       setuid = true;
       owner = "root";
