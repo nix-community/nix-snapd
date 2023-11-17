@@ -1,7 +1,9 @@
-let
-  pkgs = import <nixpkgs> { };
+{ self, pkgs }:
 
-  snap = pkgs.callPackage ./package.nix { };
+let
+  nixos-lib = import "${pkgs.path}/nixos/lib" { };
+
+  snap = self.packages.x86_64-linux.default;
 
   # Download tested snaps with a fixed-output derivation because the test runner
   # normally doesn't have internet access
@@ -26,15 +28,15 @@ let
     snap download --revision=955 gnome-calculator
   '';
 
-in (import <nixpkgs/nixos/lib> { }).runTest {
+in nixos-lib.runTest {
   name = "snap";
   hostPkgs = pkgs;
 
   nodes.machine = {
     imports = [
-      (import <nixpkgs/nixos/tests/common/user-account.nix>)
-      (import <nixpkgs/nixos/tests/common/x11.nix>)
-      ./.
+      (import "${pkgs.path}/nixos/tests/common/user-account.nix")
+      (import "${pkgs.path}/nixos/tests/common/x11.nix")
+      self.nixosModules.default
     ];
     virtualisation.diskSize = 2048;
     test-support.displayManager.auto.user = "alice";

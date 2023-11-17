@@ -1,22 +1,23 @@
-{ pkgs ? import <nixpkgs> { }, snapConfineWrapper ? null }:
+{ pkgs, lib, stdenv, python3, writeTextDir, fetchFromGitHub, buildGoModule
+, buildFHSEnvChroot, snapConfineWrapper ? null }:
 
 let
   version = "2.61";
 
-  src = pkgs.fetchFromGitHub {
+  src = fetchFromGitHub {
     owner = "snapcore";
     repo = "snapd";
     rev = version;
     hash = "sha256-xxPqKeFujM4hL0LW0PLG2ojL9fhEsYrj9qTr9iVDvRw=";
   };
 
-  goModules = (pkgs.buildGoModule {
+  goModules = (buildGoModule {
     pname = "snap-go-mod";
     inherit version src;
     vendorHash = "sha256-DuvmnYl6ATBknSNzTCCyzYlLA0h+qo7ZmAED0mwIJkY=";
   }).goModules;
 
-  env = pkgs.buildFHSEnvChroot {
+  env = buildFHSEnvChroot {
     name = "snap-env";
     targetPkgs = pkgs:
       (with pkgs; [
@@ -39,7 +40,7 @@ let
       ]);
   };
 
-in pkgs.stdenv.mkDerivation {
+in stdenv.mkDerivation {
   pname = "snap";
   inherit version src;
 
@@ -91,7 +92,7 @@ in pkgs.stdenv.mkDerivation {
 
   makeFlagsPackaging = [
     "--makefile=../packaging/snapd.mk"
-    "SNAPD_DEFINES_DIR=${pkgs.writeTextDir "snapd.defines.mk" ""}"
+    "SNAPD_DEFINES_DIR=${writeTextDir "snapd.defines.mk" ""}"
     "snap_mount_dir=$(out)/snap"
     "bindir=$(out)/bin"
     "sbindir=$(out)/sbin"
@@ -148,7 +149,7 @@ in pkgs.stdenv.mkDerivation {
       "ln -s ${snapConfineWrapper} $out/libexec/snapd/snap-confine"}
 
     cat > $out/libexec/snapd/snap-confine-stage-1 << EOL
-    #!${pkgs.python3}/bin/python3
+    #!${python3}/bin/python3
     import sys, os
     uid = os.getuid()
     gid = os.getgid()
@@ -173,7 +174,7 @@ in pkgs.stdenv.mkDerivation {
     chmod +x $out/libexec/snapd/snap-confine-stage-1
 
     cat > $out/libexec/snapd/snap-confine-stage-2 << EOL
-    #!${pkgs.python3}/bin/python3
+    #!${python3}/bin/python3
     import sys, os
     os.setresuid(int(sys.argv[1]), 0, 0)
     os.setresgid(int(sys.argv[2]), 0, 0)
@@ -186,7 +187,7 @@ in pkgs.stdenv.mkDerivation {
     wrapProgram $out/libexec/snapd/snapd \
       --set SNAPD_DEBUG 1 \
       --set PATH $out/bin:${
-        pkgs.lib.makeBinPath (with pkgs; [
+        lib.makeBinPath (with pkgs; [
           # Snapd calls
           util-linux.mount
           squashfsTools
@@ -206,7 +207,7 @@ in pkgs.stdenv.mkDerivation {
         ])
       } \
       --run ${
-        pkgs.lib.strings.escapeShellArg ''
+        lib.escapeShellArg ''
           set -uex
           shopt -s nullglob
 
