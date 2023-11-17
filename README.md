@@ -55,7 +55,3 @@ Then make the following modification to `/etc/nixos/configuration.nix`:
   services.snap.enable = true;
 }
 ```
-
-## Known issues
-
-- Audio doesn't work
