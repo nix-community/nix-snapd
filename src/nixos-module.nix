@@ -12,10 +12,19 @@ let
 in {
   options.services.snap = {
     enable = lib.mkEnableOption "snap service";
+
     snapBinInPath = lib.mkOption {
       default = true;
       example = false;
       description = "Include /snap/bin in PATH.";
+      type = lib.types.bool;
+    };
+
+    desktopFiles = lib.mkOption {
+      default = true;
+      example = false;
+      description =
+        "Add desktop files for opening snaps in desktop environments.";
       type = lib.types.bool;
     };
   };
@@ -23,8 +32,14 @@ in {
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [ snap ];
 
-    environment.extraInit = lib.optionalString cfg.snapBinInPath ''
-      export PATH="/snap/bin:$PATH"
+    environment.extraInit = ''
+      ${lib.optionalString cfg.snapBinInPath ''
+        export PATH="/snap/bin:$PATH"
+      ''}
+
+      ${lib.optionalString cfg.desktopFiles ''
+        export XDG_DATA_DIRS="/var/lib/snapd/desktop:$XDG_DATA_DIRS"
+      ''}
     '';
 
     systemd = {
