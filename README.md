@@ -2,9 +2,6 @@
 
 Snap package for Nix and NixOS
 
-This is very much a work in progress.
-Bug reports and contributions welcome!
-
 ## Installation
 
 ### Flakes
