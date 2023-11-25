@@ -232,6 +232,7 @@ stdenv.mkDerivation {
         # Pre-create directories
         install -dm755 /var/lib/snapd/snaps
         install -dm111 /var/lib/snapd/void
+        mkdir -p /var/lib/snapd/apparmor/snap-confine
 
         # Upstream snapd writes unit files to /etc/systemd/system, which is
         # immutable on NixOS. This package works around that by patching snapd
