@@ -34,6 +34,8 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    security.apparmor.enable = true;
+
     environment.systemPackages = [ snap ];
 
     environment.extraInit = ''
