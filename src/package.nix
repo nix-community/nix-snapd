@@ -79,6 +79,8 @@ stdenv.mkDerivation {
 
   configurePhase = ''
     substituteInPlace $(grep -rl '@out@') --subst-var 'out'
+    substituteInPlace sandbox/apparmor/apparmor.go \
+      --subst-var-by apparmor_parser ${pkgs.apparmor-parser}
 
     export GOCACHE=$TMPDIR/go-cache
 
@@ -205,7 +207,6 @@ stdenv.mkDerivation {
           with pkgs;
           [
             # Snapd calls
-            apparmor-parser
             util-linux.mount
             shadow
             squashfsTools
