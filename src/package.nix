@@ -61,6 +61,7 @@ in stdenv.mkDerivation {
     libcap
     glib
     udev
+    libapparmor
   ];
 
   patches = [ ./nixify.patch ];
@@ -81,7 +82,7 @@ in stdenv.mkDerivation {
         --prefix=$out \
         --libexecdir=$out/libexec/snapd \
         --with-snap-mount-dir=/snap \
-        --disable-apparmor \
+        --enable-apparmor \
         --enable-nvidia-biarch \
         --enable-merged-usr
     )
@@ -104,7 +105,7 @@ in stdenv.mkDerivation {
     "unitdir=$(out)/unitdir"
     "builddir=."
     "with_testkeys=1"
-    "with_apparmor=0"
+    "with_apparmor=1"
     "with_core_bits=0"
     "with_alt_snap_mount_dir=0"
   ];
