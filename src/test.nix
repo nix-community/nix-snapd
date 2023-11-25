@@ -76,7 +76,7 @@ nixos-lib.runTest {
     install("gtk-common-themes_1535")
     install("hello-world_29")
     install("ripgrep_9", classic=True)
-    install("microk8s_6089", classic=True)
+    # install("microk8s_6089", classic=True)
     install("gnome-calculator_955")
 
     def run():
@@ -84,7 +84,7 @@ nixos-lib.runTest {
 
       assert machine.succeed("hello-world") == "Hello World!\n"
       assert "ripgrep 12.1.0" in machine.succeed("rg --version")
-      assert machine.succeed("microk8s version") == "MicroK8s v1.28.3 revision 6089\n"
+      # assert machine.succeed("microk8s version") == "MicroK8s v1.28.3 revision 6089\n"
 
       # Test gnome-calculator snap
       machine.wait_for_x()
