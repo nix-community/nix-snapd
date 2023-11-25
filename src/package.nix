@@ -205,6 +205,7 @@ stdenv.mkDerivation {
           with pkgs;
           [
             # Snapd calls
+            apparmor-parser
             util-linux.mount
             shadow
             squashfsTools
