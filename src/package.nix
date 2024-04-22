@@ -191,6 +191,7 @@ in stdenv.mkDerivation {
         lib.makeBinPath (with pkgs; [
           # Snapd calls
           util-linux.mount
+          shadow
           squashfsTools
           systemd
           openssh

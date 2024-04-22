@@ -1,14 +1,25 @@
 {
   description = "Snap package for Nix and NixOS";
 
-  inputs.flake-compat.url =
-    "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz";
+  inputs = {
+    nixpkgs.url = "nixpkgs";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-compat.url = "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz";
+  };
 
-  outputs = { self, nixpkgs, flake-compat }:
-    let pkgs = nixpkgs.legacyPackages.x86_64-linux;
-    in {
-      packages.x86_64-linux.default = pkgs.callPackage ./src/package.nix { };
-      nixosModules.default = import ./src/nixos-module.nix self;
-      checks.x86_64-linux.test = import ./src/test.nix { inherit self pkgs; };
+  outputs =
+    inputs@{ self, flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      flake.nixosModules.default = import ./src/nixos-module.nix self;
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+      perSystem =
+        { pkgs, ... }:
+        {
+          packages.default = pkgs.callPackage ./src/package.nix { };
+          checks.test = import ./src/test.nix { inherit self pkgs; };
+        };
     };
 }
