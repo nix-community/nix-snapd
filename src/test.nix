@@ -3,7 +3,7 @@
 let
   nixos-lib = import "${pkgs.path}/nixos/lib" { };
 
-  snap = self.packages.x86_64-linux.default;
+  snap = self.packages.${pkgs.system}.default;
 
   # Download tested snaps with a fixed-output derivation because the test runner
   # normally doesn't have internet access

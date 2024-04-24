@@ -5,7 +5,7 @@ self:
 let
   cfg = config.services.snap;
 
-  snap = self.packages.x86_64-linux.default.override {
+  snap = self.packages.${pkgs.system}.default.override {
     snapConfineWrapper = "${config.security.wrapperDir}/snap-confine-stage-1";
   };
 
