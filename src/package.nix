@@ -1,5 +1,14 @@
-{ pkgs, lib, stdenv, python3, writeTextDir, fetchFromGitHub, buildGoModule
-, buildFHSEnvChroot, snapConfineWrapper ? null }:
+{
+  pkgs,
+  lib,
+  stdenv,
+  python3,
+  writeTextDir,
+  fetchFromGitHub,
+  buildGoModule,
+  buildFHSEnvChroot,
+  snapConfineWrapper ? null,
+}:
 
 let
   version = "2.61";
@@ -11,15 +20,17 @@ let
     hash = "sha256-xxPqKeFujM4hL0LW0PLG2ojL9fhEsYrj9qTr9iVDvRw=";
   };
 
-  goModules = (buildGoModule {
-    pname = "snap-go-mod";
-    inherit version src;
-    vendorHash = "sha256-DuvmnYl6ATBknSNzTCCyzYlLA0h+qo7ZmAED0mwIJkY=";
-  }).goModules;
+  goModules =
+    (buildGoModule {
+      pname = "snap-go-mod";
+      inherit version src;
+      vendorHash = "sha256-DuvmnYl6ATBknSNzTCCyzYlLA0h+qo7ZmAED0mwIJkY=";
+    }).goModules;
 
   env = buildFHSEnvChroot {
     name = "snap-env";
-    targetPkgs = pkgs:
+    targetPkgs =
+      pkgs:
       (with pkgs; [
         # Snapd calls
         util-linux.mount
@@ -39,8 +50,8 @@ let
         coreutils
       ]);
   };
-
-in stdenv.mkDerivation {
+in
+stdenv.mkDerivation {
   pname = "snap";
   inherit version src;
 
@@ -144,10 +155,12 @@ in stdenv.mkDerivation {
   postFixup = ''
     mv $out/libexec/snapd/snap-confine{,-unwrapped}
 
-    ${if builtins.isNull snapConfineWrapper then
-      "ln -s snap-confine-stage-1 $out/libexec/snapd/snap-confine"
-    else
-      "ln -s ${snapConfineWrapper} $out/libexec/snapd/snap-confine"}
+    ${
+      if builtins.isNull snapConfineWrapper then
+        "ln -s snap-confine-stage-1 $out/libexec/snapd/snap-confine"
+      else
+        "ln -s ${snapConfineWrapper} $out/libexec/snapd/snap-confine"
+    }
 
     cat > $out/libexec/snapd/snap-confine-stage-1 << EOL
     #!${python3}/bin/python3
@@ -188,62 +201,63 @@ in stdenv.mkDerivation {
     wrapProgram $out/libexec/snapd/snapd \
       --set SNAPD_DEBUG 1 \
       --set PATH $out/bin:${
-        lib.makeBinPath (with pkgs; [
-          # Snapd calls
-          util-linux.mount
-          shadow
-          squashfsTools
-          systemd
-          openssh
-          gnutar
-          gzip
-          # TODO: xdelta
+        lib.makeBinPath (
+          with pkgs;
+          [
+            # Snapd calls
+            util-linux.mount
+            shadow
+            squashfsTools
+            systemd
+            openssh
+            gnutar
+            gzip
+            # TODO: xdelta
 
-          # Snap hook calls
-          bash
-          sudo
-          gawk
+            # Snap hook calls
+            bash
+            sudo
+            gawk
 
-          # Mount wrapper calls
-          coreutils
-        ])
+            # Mount wrapper calls
+            coreutils
+          ]
+        )
       } \
-      --run ${
-        lib.escapeShellArg ''
-          set -uex
-          shopt -s nullglob
+      --run ${lib.escapeShellArg ''
+        set -uex
+        shopt -s nullglob
 
-          # Pre-create directories
-          install -dm755 /var/lib/snapd/snaps
-          install -dm111 /var/lib/snapd/void
+        # Pre-create directories
+        install -dm755 /var/lib/snapd/snaps
+        install -dm111 /var/lib/snapd/void
 
-          # Upstream snapd writes unit files to /etc/systemd/system, which is
-          # immutable on NixOS. This package works around that by patching snapd
-          # to write the unit files to /var/lib/snapd/nix-systemd-system
-          # instead, and enables them as transient runtime units. However, this
-          # means they won't automatically start on boot, which breaks snapd.
-          # To solve this, the next block of code starts all the unit files in
-          # /var/lib/snapd/nix-systemd-system.
+        # Upstream snapd writes unit files to /etc/systemd/system, which is
+        # immutable on NixOS. This package works around that by patching snapd
+        # to write the unit files to /var/lib/snapd/nix-systemd-system
+        # instead, and enables them as transient runtime units. However, this
+        # means they won't automatically start on boot, which breaks snapd.
+        # To solve this, the next block of code starts all the unit files in
+        # /var/lib/snapd/nix-systemd-system.
 
-          for path in /var/lib/snapd/nix-systemd-system/*; do
-            name="$(basename "$path")"
-            if ! systemctl is-active --quiet "$name"; then
-              rtpath="/run/systemd/system/$name"
-              ln -fs "$path" "$rtpath"
-              systemctl start "$name"
-              rm -f "$rtpath"
-            fi
-          done
+        for path in /var/lib/snapd/nix-systemd-system/*; do
+          name="$(basename "$path")"
+          if ! systemctl is-active --quiet "$name"; then
+            rtpath="/run/systemd/system/$name"
+            ln -fs "$path" "$rtpath"
+            systemctl start "$name"
+            rm -f "$rtpath"
+          fi
+        done
 
-          # Make /snap/bin symlinks not point inside /nix/store,
-          # so they don't point to an old version of snap
-          for f in /snap/bin/*; do
-            if [[ "$(readlink "$f")" = /nix/store/* ]]; then
-              rm -f "$f"
-              ln -s /run/current-system/sw/bin/snap "$f"
-            fi
-          done
-        ''
-      }
+        # Make /snap/bin symlinks not point inside /nix/store,
+        # so they don't point to an old version of snap
+        for f in /snap/bin/*; do
+          if [[ "$(readlink "$f")" = /nix/store/* ]]; then
+            rm -f "$f"
+            ln -s /run/current-system/sw/bin/snap "$f"
+          fi
+        done
+      ''}
   '';
 }

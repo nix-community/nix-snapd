@@ -7,28 +7,34 @@ let
 
   # Download tested snaps with a fixed-output derivation because the test runner
   # normally doesn't have internet access
-  downloadedSnaps = pkgs.runCommand "downloaded-snaps" {
-    buildInputs = [ snap pkgs.squashfsTools ];
-    outputHashMode = "recursive";
-    outputHash = "sha256-I4BtEkjCdCxrRyorcgDLwc40R6sIYNJbz2LpgsB+N84=";
-  } ''
-    mkdir $out
-    cd $out
+  downloadedSnaps =
+    pkgs.runCommand "downloaded-snaps"
+      {
+        buildInputs = [
+          snap
+          pkgs.squashfsTools
+        ];
+        outputHashMode = "recursive";
+        outputHash = "sha256-I4BtEkjCdCxrRyorcgDLwc40R6sIYNJbz2LpgsB+N84=";
+      }
+      ''
+        mkdir $out
+        cd $out
 
-    snap download --revision=16202 core
-    snap download --revision=2796 core18
-    snap download --revision=2015 core20
-    snap download --revision=864 core22
-    snap download --revision=5 bare
-    snap download --revision=141 gnome-42-2204
-    snap download --revision=1535 gtk-common-themes
-    snap download --revision=29 hello-world
-    snap download --revision=9 ripgrep
-    snap download --revision=6089 microk8s
-    snap download --revision=955 gnome-calculator
-  '';
-
-in nixos-lib.runTest {
+        snap download --revision=16202 core
+        snap download --revision=2796 core18
+        snap download --revision=2015 core20
+        snap download --revision=864 core22
+        snap download --revision=5 bare
+        snap download --revision=141 gnome-42-2204
+        snap download --revision=1535 gtk-common-themes
+        snap download --revision=29 hello-world
+        snap download --revision=9 ripgrep
+        snap download --revision=6089 microk8s
+        snap download --revision=955 gnome-calculator
+      '';
+in
+nixos-lib.runTest {
   name = "snap";
   hostPkgs = pkgs;
 

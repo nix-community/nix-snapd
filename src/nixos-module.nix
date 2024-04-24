@@ -1,6 +1,11 @@
 self:
 
-{ pkgs, config, lib, ... }:
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
 
 let
   cfg = config.services.snap;
@@ -8,8 +13,8 @@ let
   snap = self.packages.${pkgs.system}.default.override {
     snapConfineWrapper = "${config.security.wrapperDir}/snap-confine-stage-1";
   };
-
-in {
+in
+{
   options.services.snap = {
     enable = lib.mkEnableOption "snap service";
 
@@ -23,8 +28,7 @@ in {
     desktopFiles = lib.mkOption {
       default = true;
       example = false;
-      description =
-        "Add desktop files for opening snaps in desktop environments.";
+      description = "Add desktop files for opening snaps in desktop environments.";
       type = lib.types.bool;
     };
   };
