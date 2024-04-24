@@ -10,7 +10,7 @@ let
   downloadedSnaps = pkgs.runCommand "downloaded-snaps" {
     buildInputs = [ snap pkgs.squashfsTools ];
     outputHashMode = "recursive";
-    outputHash = "sha256-21rxObL/SlKg2UHudWtyQcgxS0CwLN0nijztC1669qQ=";
+    outputHash = "sha256-I4BtEkjCdCxrRyorcgDLwc40R6sIYNJbz2LpgsB+N84=";
   } ''
     mkdir $out
     cd $out
