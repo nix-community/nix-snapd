@@ -32,9 +32,7 @@ let
     extraBwrapArgs = [
       "--bind /var/snap /var/snap"
       "--bind /snap /snap"
-      # https://github.com/io12/nix-snapd/issues/4
-      "--bind /etc/fonts /etc/fonts"
-      "--tmpfs /etc/oracle-cloud-agent"
+      "--bind-try /etc/oracle-cloud-agent /etc/oracle-cloud-agent"
     ];
     targetPkgs = pkgs:
       (with pkgs; [
