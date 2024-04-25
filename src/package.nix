@@ -6,7 +6,7 @@
   writeTextDir,
   fetchFromGitHub,
   buildGoModule,
-  buildFHSEnvChroot,
+  buildFHSEnvBubblewrap,
   snapConfineWrapper ? null,
 }:
 
@@ -27,10 +27,16 @@ let
       vendorHash = "sha256-DuvmnYl6ATBknSNzTCCyzYlLA0h+qo7ZmAED0mwIJkY=";
     }).goModules;
 
-  env = buildFHSEnvChroot {
+  env = buildFHSEnvBubblewrap {
     name = "snap-env";
-    targetPkgs =
-      pkgs:
+    extraBwrapArgs = [
+      "--bind /var/snap /var/snap"
+      "--bind /snap /snap"
+      # https://github.com/io12/nix-snapd/issues/4
+      "--bind /etc/fonts /etc/fonts"
+      "--bind /etc/oracle-cloud-agent /etc/oracle-cloud-agent"
+    ];
+    targetPkgs = pkgs:
       (with pkgs; [
         # Snapd calls
         util-linux.mount
@@ -237,10 +243,15 @@ stdenv.mkDerivation {
         # to write the unit files to /var/lib/snapd/nix-systemd-system
         # instead, and enables them as transient runtime units. However, this
         # means they won't automatically start on boot, which breaks snapd.
-        # To solve this, the next block of code starts all the unit files in
+        # To solve this, the next block of code first symlinks all the
+        # mount units and then starts all the unit files in
         # /var/lib/snapd/nix-systemd-system.
-
-        for path in /var/lib/snapd/nix-systemd-system/*; do
+        for path in /var/lib/snapd/nix-systemd-system/*.mount; do
+          name="$(basename "$path")"
+          rtpath="/run/systemd/system/$name"
+          ln -fs "$path" "$rtpath"
+        done
+        for path in /var/lib/snapd/nix-systemd-system/*.service; do
           name="$(basename "$path")"
           if ! systemctl is-active --quiet "$name"; then
             rtpath="/run/systemd/system/$name"
