@@ -34,7 +34,7 @@ let
       "--bind /snap /snap"
       # https://github.com/io12/nix-snapd/issues/4
       "--bind /etc/fonts /etc/fonts"
-      "--bind /etc/oracle-cloud-agent /etc/oracle-cloud-agent"
+      "--tmpfs /etc/oracle-cloud-agent"
     ];
     targetPkgs = pkgs:
       (with pkgs; [
