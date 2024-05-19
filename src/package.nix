@@ -164,9 +164,12 @@ stdenv.mkDerivation {
 
     cat > $out/libexec/snapd/snap-confine-stage-1 << EOL
     #!${python3}/bin/python3
-    import sys, os
-    uid = os.getuid()
-    gid = os.getgid()
+    import sys, os, json
+    os.environ["NIX_SNAP_CONFINE_DATA"] = json.dumps(dict(
+      uid=os.getuid(),
+      gid=os.getgid(),
+      args=sys.argv[1:],
+    ))
     os.setuid(0)
     os.setgid(0)
     os.execv(
@@ -174,13 +177,7 @@ stdenv.mkDerivation {
       [
         "${env}/bin/snap-env",
         "-c",
-        " ".join([
-          "exec",
-          "@out@/libexec/snapd/snap-confine-stage-2",
-          str(uid),
-          str(gid),
-          "@out@/libexec/snapd/snap-confine-unwrapped",
-        ] + sys.argv[1:]),
+        "exec @out@/libexec/snapd/snap-confine-stage-2",
       ],
     )
     EOL
@@ -189,11 +186,13 @@ stdenv.mkDerivation {
 
     cat > $out/libexec/snapd/snap-confine-stage-2 << EOL
     #!${python3}/bin/python3
-    import sys, os
-    os.setresuid(int(sys.argv[1]), 0, 0)
-    os.setresgid(int(sys.argv[2]), 0, 0)
+    import sys, os, json
+    data = json.loads(os.environ.pop("NIX_SNAP_CONFINE_DATA"))
+    os.setresuid(data["uid"], 0, 0)
+    os.setresgid(data["gid"], 0, 0)
     os.environ["PATH"] += ":@out@/bin"
-    os.execv(sys.argv[3], sys.argv[3:])
+    unwrapped = "@out@/libexec/snapd/snap-confine-unwrapped"
+    os.execv(unwrapped, [unwrapped] + data["args"])
     EOL
     substituteInPlace $out/libexec/snapd/snap-confine-stage-? --subst-var 'out'
     chmod +x $out/libexec/snapd/snap-confine-stage-2
