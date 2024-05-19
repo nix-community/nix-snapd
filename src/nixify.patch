@@ -1,5 +1,5 @@
 diff --git a/cmd/Makefile.am b/cmd/Makefile.am
-index e4c260bfd0..5dc547c422 100644
+index e4c260bfd0..b5c8b5a52b 100644
 --- a/cmd/Makefile.am
 +++ b/cmd/Makefile.am
 @@ -95,9 +95,8 @@ fmt:: $(filter-out $(addprefix %,$(new_format)),$(foreach dir,$(subdirs),$(wildc
@@ -36,7 +36,7 @@ index e4c260bfd0..5dc547c422 100644
  ##
  ## snap-mgmt
 diff --git a/cmd/libsnap-confine-private/utils.c b/cmd/libsnap-confine-private/utils.c
-index 635538a3da..b0b75e936c 100644
+index b5049c0919..23eb80e2a2 100644
 --- a/cmd/libsnap-confine-private/utils.c
 +++ b/cmd/libsnap-confine-private/utils.c
 @@ -242,7 +242,7 @@ int sc_nonfatal_mkpath(const char *const path, mode_t mode)
@@ -49,10 +49,10 @@ index 635538a3da..b0b75e936c 100644
  	if (regcomp(&re, expected_path_re, REG_EXTENDED | REG_NOSUB) != 0)
  		die("can not compile regex %s", expected_path_re);
 diff --git a/cmd/snap-confine/mount-support.c b/cmd/snap-confine/mount-support.c
-index b4cc1b410a..fa0f6422b9 100644
+index c6f804423a..273f9e4a31 100644
 --- a/cmd/snap-confine/mount-support.c
 +++ b/cmd/snap-confine/mount-support.c
-@@ -964,7 +964,7 @@ void sc_populate_mount_ns(struct sc_apparmor *apparmor, int snap_update_ns_fd,
+@@ -972,7 +972,7 @@ void sc_populate_mount_ns(struct sc_apparmor *apparmor, int snap_update_ns_fd,
  			{.path = "/run"},	// to get /run with sockets and what not
  			{.path = "/lib/modules",.is_optional = true},	// access to the modules of the running kernel
  			{.path = "/lib/firmware",.is_optional = true},	// access to the firmware of the running kernel
@@ -60,9 +60,9 @@ index b4cc1b410a..fa0f6422b9 100644
 +			{.path = "/usr/src",.is_optional = true},	// FIXME: move to SecurityMounts in system-trace interface
  			{.path = "/var/log"},	// FIXME: move to SecurityMounts in log-observe interface
  #ifdef MERGED_USR
- 			{.path = "/run/media", .is_bidirectional = true, .altpath = "/media"},	// access to the users removable devices
+ 			{.path = "/run/media",.is_bidirectional = true,.altpath = "/media"},	// access to the users removable devices
 diff --git a/cmd/snap-confine/seccomp-support.c b/cmd/snap-confine/seccomp-support.c
-index 7432d79cb1..ddff4d3132 100644
+index 4722b8baf0..dd7e48318b 100644
 --- a/cmd/snap-confine/seccomp-support.c
 +++ b/cmd/snap-confine/seccomp-support.c
 @@ -57,10 +57,6 @@ static void validate_path_has_strict_perms(const char *path)
@@ -77,23 +77,23 @@ index 7432d79cb1..ddff4d3132 100644
  
  static void validate_bpfpath_is_safe(const char *path)
 diff --git a/cmd/snap-confine/snap-confine.c b/cmd/snap-confine/snap-confine.c
-index b735a100f7..78aac63e8a 100644
+index 29534678c1..4c27f9255f 100644
 --- a/cmd/snap-confine/snap-confine.c
 +++ b/cmd/snap-confine/snap-confine.c
-@@ -421,7 +421,7 @@ int main(int argc, char **argv)
+@@ -422,7 +422,7 @@ int main(int argc, char **argv)
  		 * one, which definitely doesn't run in a snap-specific namespace, has a
  		 * predictable PID and is long lived.
  		 */
-+		// NIX PATCH: Don't try to escape the FHS environment
 -		sc_reassociate_with_pid1_mount_ns();
++		// NIX PATCH: Don't try to escape the FHS environment
  		// Do global initialization:
  		int global_lock_fd = sc_lock_global();
  		// Ensure that "/" or "/snap" is mounted with the
 diff --git a/dirs/dirs.go b/dirs/dirs.go
-index d662937840..da810ec65d 100644
+index f2209c9d7b..cc2ce18f2f 100644
 --- a/dirs/dirs.go
 +++ b/dirs/dirs.go
-@@ -296,7 +296,7 @@ func SnapSystemdConfDirUnder(rootdir string) string {
+@@ -378,7 +378,7 @@ func SnapSystemdConfDirUnder(rootdir string) string {
  // SnapSystemdConfDirUnder returns the path to the systemd conf dir under
  // rootdir.
  func SnapServicesDirUnder(rootdir string) string {
@@ -102,7 +102,7 @@ index d662937840..da810ec65d 100644
  }
  
  // SnapBootAssetsDirUnder returns the path to boot assets directory under a
-@@ -429,14 +429,14 @@ func SetRootDir(rootdir string) {
+@@ -510,14 +510,14 @@ func SetRootDir(rootdir string) {
  	SnapRollbackDir = filepath.Join(rootdir, snappyDir, "rollback")
  
  	SnapBinariesDir = filepath.Join(SnapMountDir, "bin")
@@ -119,7 +119,7 @@ index d662937840..da810ec65d 100644
  	SnapDBusSessionPolicyDir = filepath.Join(rootdir, "/etc/dbus-1/session.d")
  	// Use 'dbus-1/services' and `dbus-1/system-services' to mirror
  	// '/usr/share/dbus-1' hierarchy.
-@@ -447,7 +447,7 @@ func SetRootDir(rootdir string) {
+@@ -528,7 +528,7 @@ func SetRootDir(rootdir string) {
  
  	CloudInstanceDataFile = filepath.Join(rootdir, "/run/cloud-init/instance-data.json")
  
@@ -128,7 +128,7 @@ index d662937840..da810ec65d 100644
  
  	SnapKModModulesDir = filepath.Join(rootdir, "/etc/modules-load.d/")
  	SnapKModModprobeDir = filepath.Join(rootdir, "/etc/modprobe.d/")
-@@ -479,7 +479,7 @@ func SetRootDir(rootdir string) {
+@@ -560,7 +560,7 @@ func SetRootDir(rootdir string) {
  		// both RHEL and CentOS list "fedora" in ID_LIKE
  		DistroLibExecDir = filepath.Join(rootdir, "/usr/libexec/snapd")
  	} else {
@@ -160,10 +160,10 @@ index 008637492a..f4c3a42875 100644
  				return false, ErrSystemKeyVersion
  			}
 diff --git a/snap/info.go b/snap/info.go
-index 020c4a9b3d..c8d32048b5 100644
+index a2470c0eef..4bbd2140ba 100644
 --- a/snap/info.go
 +++ b/snap/info.go
-@@ -1181,9 +1181,9 @@ func (app *AppInfo) launcherCommand(command string) string {
+@@ -1289,9 +1289,9 @@ func (app *AppInfo) launcherCommand(command string) string {
  		command = " " + command
  	}
  	if app.Name == app.Snap.SnapName() {
@@ -176,10 +176,10 @@ index 020c4a9b3d..c8d32048b5 100644
  
  // LauncherCommand returns the launcher command line to use when invoking the
 diff --git a/systemd/systemd.go b/systemd/systemd.go
-index b19e1414ab..90aa2bf4c3 100644
+index a2f2c34dbb..c1ed85e6c9 100644
 --- a/systemd/systemd.go
 +++ b/systemd/systemd.go
-@@ -576,6 +576,14 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+@@ -602,6 +602,14 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
  	if len(serviceNames) == 0 {
  		return nil
  	}
@@ -194,7 +194,7 @@ index b19e1414ab..90aa2bf4c3 100644
  	var args []string
  	if s.rootDir != "" {
  		// passing root already implies no reload
-@@ -583,6 +591,7 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+@@ -609,6 +617,7 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
  	} else {
  		args = append(args, "--no-reload")
  	}
@@ -202,7 +202,7 @@ index b19e1414ab..90aa2bf4c3 100644
  	args = append(args, "enable")
  	args = append(args, serviceNames...)
  	_, err := s.systemctl(args...)
-@@ -603,6 +612,14 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+@@ -629,6 +638,14 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
  	if len(serviceNames) == 0 {
  		return nil
  	}
@@ -217,7 +217,7 @@ index b19e1414ab..90aa2bf4c3 100644
  	var args []string
  	if s.rootDir != "" {
  		// passing root already implies no reload
-@@ -610,6 +627,7 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+@@ -636,6 +653,7 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
  	} else {
  		args = append(args, "--no-reload")
  	}
@@ -238,11 +238,11 @@ index 5f88b3aff8..ca2c187b87 100644
  
  		if completionVariant != noCompletion && app.Completer != "" {
  			completersContent[appBase] = &osutil.SymlinkFileState{Target: completeSh}
-diff --git a/wrappers/services.go b/wrappers/services.go
-index 0af94114f3..b15c0743a7 100644
---- a/wrappers/services.go
-+++ b/wrappers/services.go
-@@ -1236,6 +1236,8 @@ TimeoutStopSec={{.StopTimeout.Seconds}}
+diff --git a/wrappers/internal/service_unit_gen.go b/wrappers/internal/service_unit_gen.go
+index 7f066942fb..4a014ca981 100644
+--- a/wrappers/internal/service_unit_gen.go
++++ b/wrappers/internal/service_unit_gen.go
+@@ -157,6 +157,8 @@ TimeoutStopSec={{.StopTimeout.Seconds}}
  TimeoutStartSec={{.StartTimeout.Seconds}}
  {{- end}}
  Type={{.App.Daemon}}

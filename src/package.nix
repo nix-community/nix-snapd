@@ -11,20 +11,20 @@
 }:
 
 let
-  version = "2.61";
+  version = "2.62";
 
   src = fetchFromGitHub {
     owner = "snapcore";
     repo = "snapd";
     rev = version;
-    hash = "sha256-xxPqKeFujM4hL0LW0PLG2ojL9fhEsYrj9qTr9iVDvRw=";
+    hash = "sha256-4tUbPqAoaXmJIIMhnVZX+f2P2Wc+EUFR/d/yAxAKK80=";
   };
 
   goModules =
     (buildGoModule {
       pname = "snap-go-mod";
       inherit version src;
-      vendorHash = "sha256-DuvmnYl6ATBknSNzTCCyzYlLA0h+qo7ZmAED0mwIJkY=";
+      vendorHash = "sha256-1l04iE849WpIBFePEUjJcIP5akVLGy2mT1reGJCwoiM=";
     }).goModules;
 
   env = buildFHSEnvChroot {
