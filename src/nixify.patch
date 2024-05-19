@@ -225,6 +225,28 @@ index a2f2c34dbb..c1ed85e6c9 100644
  	args = append(args, "disable")
  	args = append(args, serviceNames...)
  	_, err := s.systemctl(args...)
+diff --git a/usersession/userd/launcher.go b/usersession/userd/launcher.go
+index 830ed9995c..843f628730 100644
+--- a/usersession/userd/launcher.go
++++ b/usersession/userd/launcher.go
+@@ -206,7 +206,7 @@ func (s *Launcher) OpenURL(addr string, sender dbus.Sender) *dbus.Error {
+ 	// this code must not add directories from the snap
+ 	// to XDG_DATA_DIRS and similar, see
+ 	// https://ubuntu.com/security/CVE-2020-11934
+-	if err := exec.Command("xdg-open", addr).Run(); err != nil {
++	if err := exec.Command("@out@/libexec/xdg-open", addr).Run(); err != nil {
+ 		return dbus.MakeFailedError(fmt.Errorf("cannot open supplied URL"))
+ 	}
+ 
+@@ -292,7 +292,7 @@ func (s *Launcher) OpenFile(parentWindow string, clientFd dbus.UnixFD, sender db
+ 		return dbus.MakeFailedError(fmt.Errorf("permission denied"))
+ 	}
+ 
+-	if err = exec.Command("xdg-open", filename).Run(); err != nil {
++	if err = exec.Command("@out@/libexec/xdg-open", filename).Run(); err != nil {
+ 		return dbus.MakeFailedError(fmt.Errorf("cannot open supplied URL"))
+ 	}
+ 
 diff --git a/wrappers/binaries.go b/wrappers/binaries.go
 index 5f88b3aff8..ca2c187b87 100644
 --- a/wrappers/binaries.go

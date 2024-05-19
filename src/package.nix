@@ -3,6 +3,7 @@
   lib,
   stdenv,
   python3,
+  xdg-utils,
   writeTextDir,
   fetchFromGitHub,
   buildGoModule,
@@ -196,6 +197,11 @@ stdenv.mkDerivation {
     EOL
     substituteInPlace $out/libexec/snapd/snap-confine-stage-? --subst-var 'out'
     chmod +x $out/libexec/snapd/snap-confine-stage-2
+
+    # Make xdg-open wrapper for io.snapcraft.Launcher so it can run xdg-open to
+    # open with any installed program, even if it isn't a dependency
+    makeWrapper ${xdg-utils}/bin/xdg-open $out/libexec/xdg-open \
+      --suffix PATH : /run/current-system/sw/bin
 
     wrapProgram $out/libexec/snapd/snapd \
       --set SNAPD_DEBUG 1 \
