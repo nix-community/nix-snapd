@@ -14,7 +14,7 @@ Example minimal `/etc/nixos/flake.nix`:
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nix-snapd.url = "github:io12/nix-snapd";
+    nix-snapd.url = "github:nix-community/nix-snapd";
     nix-snapd.inputs.nixpkgs.follows = "nixpkgs";
   };
 
@@ -37,7 +37,7 @@ Example minimal `/etc/nixos/flake.nix`:
 Add a `nix-snapd` channel with
 
 ``` sh
-sudo nix-channel --add https://github.com/io12/nix-snapd/archive/main.tar.gz nix-snapd
+sudo nix-channel --add https://github.com/nix-community/nix-snapd/archive/main.tar.gz nix-snapd
 sudo nix-channel --update
 ```
 
