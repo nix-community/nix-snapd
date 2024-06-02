@@ -1,0 +1,27 @@
+[x86_64-linux]
+hash = "sha256-CGM3L/4sQ0MJ5fN92ZJ+oPwFR4DX/06Z45v9g3HTcAM="
+snaps = [
+    { name = "bare", rev = 5 },
+    { name = "core", rev = 16928 },
+    { name = "core20", rev = 2318 },
+    { name = "core22", rev = 1380},
+    { name = "gnome-42-2204", rev = 176 },
+    { name = "gtk-common-themes", rev = 1535 },
+    { name = "gnome-calculator", rev = 955 },
+    { name = "hello-world", rev = 29 },
+    { name = "microk8s", rev = 6809, classic = true },
+]
+
+[aarch64-linux]
+hash = "sha256-a3rBsutW3X3WiUG5jk0WJKjqHvzppFrNNL/lKeYf5VM="
+snaps = [
+    { name = "bare", rev = 5 },
+    { name = "core", rev = 16931 },
+    { name = "core20", rev = 2321 },
+    { name = "core22", rev = 1383 },
+    { name = "gnome-42-2204", rev = 178 },
+    { name = "gtk-common-themes", rev = 1535 },
+    { name = "gnome-calculator", rev = 956 },
+    { name = "hello-world", rev = 29 },
+    { name = "microk8s", rev = 6808, classic = true },
+]

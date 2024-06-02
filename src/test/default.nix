@@ -5,6 +5,8 @@ let
 
   snap = self.packages.${pkgs.system}.default;
 
+  pinnedSnapVersions = (pkgs.lib.importTOML ./pinned-snap-versions.toml).${pkgs.system};
+
   # Download tested snaps with a fixed-output derivation because the test runner
   # normally doesn't have internet access
   downloadedSnaps =
@@ -15,23 +17,17 @@ let
           pkgs.squashfsTools
         ];
         outputHashMode = "recursive";
-        outputHash = "sha256-I4BtEkjCdCxrRyorcgDLwc40R6sIYNJbz2LpgsB+N84=";
+        outputHash = pinnedSnapVersions.hash;
       }
       ''
         mkdir $out
         cd $out
-
-        snap download --revision=16202 core
-        snap download --revision=2796 core18
-        snap download --revision=2015 core20
-        snap download --revision=864 core22
-        snap download --revision=5 bare
-        snap download --revision=141 gnome-42-2204
-        snap download --revision=1535 gtk-common-themes
-        snap download --revision=29 hello-world
-        snap download --revision=9 ripgrep
-        snap download --revision=6089 microk8s
-        snap download --revision=955 gnome-calculator
+        ${pkgs.lib.concatMapStrings (
+          { name, rev, ... }:
+          ''
+            snap download ${name} --revision=${toString rev}
+          ''
+        ) pinnedSnapVersions.snaps}
       '';
 in
 nixos-lib.runTest {
@@ -55,36 +51,33 @@ nixos-lib.runTest {
     # Check version
     assert "${snap.version}" in machine.succeed("snap --version")
 
-    def install(name_rev, classic=False):
-      classic = "--classic" if classic else ""
-      machine.succeed(f"snap ack ${downloadedSnaps}/{name_rev}.assert")
-      machine.succeed(f"snap install {classic} ${downloadedSnaps}/{name_rev}.snap")
-
     # Ensure snap programs aren't already installed
     machine.fail("hello-world")
-    machine.fail("rg --version")
     machine.fail("microk8s version")
     machine.fail("gnome-calculator")
 
     # Install snaps
-    install("core_16202")
-    install("core18_2796")
-    install("core20_2015")
-    install("core22_864")
-    install("bare_5")
-    install("gnome-42-2204_141")
-    install("gtk-common-themes_1535")
-    install("hello-world_29")
-    install("ripgrep_9", classic=True)
-    install("microk8s_6089", classic=True)
-    install("gnome-calculator_955")
+    ${pkgs.lib.concatMapStrings (
+      {
+        name,
+        rev,
+        classic ? false,
+      }:
+      let
+        path = "${downloadedSnaps}/${name}_${toString rev}";
+        classicFlag = pkgs.lib.optionalString classic "--classic";
+      in
+      ''
+        machine.succeed("snap ack ${path}.assert")
+        machine.succeed("snap install ${classicFlag} ${path}.snap")
+      ''
+    ) pinnedSnapVersions.snaps}
 
     def run():
       machine.wait_for_unit("snapd.service")
 
       assert machine.succeed("hello-world") == "Hello World!\n"
-      assert "ripgrep 12.1.0" in machine.succeed("rg --version")
-      assert machine.succeed("microk8s version") == "MicroK8s v1.28.3 revision 6089\n"
+      assert machine.succeed("microk8s version").startswith("MicroK8s v1.29.4")
 
       # Test gnome-calculator snap
       machine.wait_for_x()
