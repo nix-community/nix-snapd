@@ -77,6 +77,7 @@ nixos-lib.runTest {
       machine.wait_for_unit("snapd.service")
 
       assert machine.succeed("hello-world") == "Hello World!\n"
+      assert machine.succeed("su - alice -c hello-world") == "Hello World!\n"
       assert machine.succeed("microk8s version").startswith("MicroK8s v1.29.4")
 
       # Test gnome-calculator snap
