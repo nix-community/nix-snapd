@@ -171,8 +171,14 @@ stdenv.mkDerivation {
       gid=os.getgid(),
       args=sys.argv[1:],
     ))
-    os.setuid(0)
-    os.setgid(0)
+    try:
+      os.setuid(0)
+      os.setgid(0)
+    except PermissionError:
+      raise PermissionError(" ".join((
+        "Snap-confine wasn't run as root.",
+        "Either re-run this command as root or use the NixOS module.",
+      )))
     os.execv(
       "${env}/bin/snap-env",
       [
