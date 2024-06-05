@@ -8,7 +8,6 @@
   fetchFromGitHub,
   buildGoModule,
   buildFHSEnvChroot,
-  snapConfineWrapper ? null,
 }:
 
 let
@@ -156,12 +155,19 @@ stdenv.mkDerivation {
   postFixup = ''
     mv $out/libexec/snapd/snap-confine{,-unwrapped}
 
-    ${
-      if builtins.isNull snapConfineWrapper then
-        "ln -s snap-confine-stage-1 $out/libexec/snapd/snap-confine"
-      else
-        "ln -s ${snapConfineWrapper} $out/libexec/snapd/snap-confine"
-    }
+    cat > $out/libexec/snapd/snap-confine << EOL
+    #!${python3}/bin/python3
+    import sys, os
+    setuid_wrapper = "/run/wrappers/bin/snap-confine-setuid-wrapper"
+    path = (
+      setuid_wrapper
+      if os.path.exists(setuid_wrapper)
+      else "@out@/libexec/snapd/snap-confine-stage-1"
+    )
+    os.execv(path, [path] + sys.argv[1:])
+    EOL
+    substituteInPlace $out/libexec/snapd/snap-confine --subst-var 'out'
+    chmod +x $out/libexec/snapd/snap-confine
 
     cat > $out/libexec/snapd/snap-confine-stage-1 << EOL
     #!${python3}/bin/python3

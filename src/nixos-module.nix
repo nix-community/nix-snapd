@@ -9,10 +9,7 @@ self:
 
 let
   cfg = config.services.snap;
-
-  snap = self.packages.${pkgs.system}.default.override {
-    snapConfineWrapper = "${config.security.wrapperDir}/snap-confine-stage-1";
-  };
+  snap = self.packages.${pkgs.system}.default;
 in
 {
   options.services.snap = {
@@ -52,7 +49,7 @@ in
       services.snapd.wantedBy = [ "multi-user.target" ];
     };
 
-    security.wrappers.snap-confine-stage-1 = {
+    security.wrappers.snap-confine-setuid-wrapper = {
       setuid = true;
       owner = "root";
       group = "root";
