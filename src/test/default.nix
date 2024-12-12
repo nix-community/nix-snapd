@@ -3,9 +3,11 @@
 let
   nixos-lib = import "${pkgs.path}/nixos/lib" { };
 
-  snap = self.packages.${pkgs.system}.default;
+  system = pkgs.stdenv.system;
 
-  pinnedSnapVersions = (pkgs.lib.importTOML ./pinned-snap-versions.toml).${pkgs.system};
+  snap = self.packages.${system}.default;
+
+  pinnedSnapVersions = (pkgs.lib.importTOML ./pinned-snap-versions.toml).${system};
 
   # Download tested snaps with a fixed-output derivation because the test runner
   # normally doesn't have internet access

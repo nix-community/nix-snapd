@@ -9,7 +9,7 @@ self:
 
 let
   cfg = config.services.snap;
-  snap = self.packages.${pkgs.system}.default;
+  snap = self.packages.${pkgs.stdenv.system}.default;
 in
 {
   options.services.snap = {
