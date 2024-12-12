@@ -17,6 +17,7 @@ let
           pkgs.squashfsTools
         ];
         outputHashMode = "recursive";
+        outputHashAlgo = "sha256";
         outputHash = pinnedSnapVersions.hash;
       }
       ''
