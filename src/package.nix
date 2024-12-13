@@ -7,7 +7,8 @@
   writeTextDir,
   fetchFromGitHub,
   buildGoModule,
-  buildFHSEnvChroot,
+  buildFHSEnvBubblewrap,
+  bubblewrap,
 }:
 
 let
@@ -27,8 +28,20 @@ let
       vendorHash = "sha256-1l04iE849WpIBFePEUjJcIP5akVLGy2mT1reGJCwoiM=";
     }).goModules;
 
-  env = buildFHSEnvChroot {
+  insecureBubblewrap = bubblewrap.overrideAttrs (o: {
+    patches = (o.patches or [ ]) ++ [ ./bubblewrap-insecure.patch ];
+  });
+
+  buildFHSEnvInsecureBubblewrap = buildFHSEnvBubblewrap.override {
+    bubblewrap = insecureBubblewrap;
+  };
+
+  env = buildFHSEnvInsecureBubblewrap {
     name = "snap-env";
+    extraBwrapArgs = [
+      "--ro-bind /etc/pam.d /etc/pam.d"
+      "--ro-bind /etc/pam /etc/pam"
+    ];
     targetPkgs =
       pkgs:
       (with pkgs; [
