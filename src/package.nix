@@ -12,7 +12,7 @@
 }:
 
 let
-  version = "2.67";
+  version = "2.62";
 
   src = fetchFromGitHub {
     owner = "snapcore";
