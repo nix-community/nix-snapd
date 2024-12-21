@@ -1,5 +1,5 @@
 [x86_64-linux]
-hash = "sha256-CGM3L/4sQ0MJ5fN92ZJ+oPwFR4DX/06Z45v9g3HTcAM="
+hash = "sha256-qWyIkUwarH1t4mZ+rrFuThARbhfguQSXR+Iag1K7H0g="
 snaps = [
     { name = "bare", rev = 5 },
     { name = "core", rev = 16928 },
@@ -9,11 +9,10 @@ snaps = [
     { name = "gtk-common-themes", rev = 1535 },
     { name = "gnome-calculator", rev = 955 },
     { name = "hello-world", rev = 29 },
-    { name = "microk8s", rev = 6809, classic = true },
 ]
 
 [aarch64-linux]
-hash = "sha256-a3rBsutW3X3WiUG5jk0WJKjqHvzppFrNNL/lKeYf5VM="
+hash = "sha256-wzeVDwCLPxJQPFbyaVpbDncX8GJMX8uL0oliteokZZo="
 snaps = [
     { name = "bare", rev = 5 },
     { name = "core", rev = 16931 },
@@ -23,5 +22,4 @@ snaps = [
     { name = "gtk-common-themes", rev = 1535 },
     { name = "gnome-calculator", rev = 956 },
     { name = "hello-world", rev = 29 },
-    { name = "microk8s", rev = 6808, classic = true },
 ]
