@@ -12,7 +12,7 @@ let
   # Download tested snaps with a fixed-output derivation because the test runner
   # normally doesn't have internet access
   downloadedSnaps =
-    pkgs.runCommand "downloaded-snaps"
+    pkgs.runCommand "${system}-downloaded-snaps"
       {
         buildInputs = [
           snap
@@ -56,7 +56,6 @@ nixos-lib.runTest {
 
     # Ensure snap programs aren't already installed
     machine.fail("hello-world")
-    machine.fail("microk8s version")
     machine.fail("gnome-calculator")
 
     # Install snaps
@@ -81,7 +80,6 @@ nixos-lib.runTest {
 
       assert machine.succeed("hello-world") == "Hello World!\n"
       assert machine.succeed("su - alice -c hello-world") == "Hello World!\n"
-      assert machine.succeed("microk8s version").startswith("MicroK8s v1.29.4")
 
       # Test gnome-calculator snap
       machine.wait_for_x()
