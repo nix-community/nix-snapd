@@ -1,58 +1,57 @@
 diff --git a/cmd/Makefile.am b/cmd/Makefile.am
-index e4c260bfd0..b5c8b5a52b 100644
+index b1923adf44..f17cce66d8 100644
 --- a/cmd/Makefile.am
 +++ b/cmd/Makefile.am
-@@ -95,9 +95,8 @@ fmt:: $(filter-out $(addprefix %,$(new_format)),$(foreach dir,$(subdirs),$(wildc
+@@ -98,7 +98,7 @@ fmt:: $(filter-out $(addprefix %,$(new_format)),$(foreach dir,$(subdirs),$(wildc
  # installing a fresh copy of snap confine and the appropriate apparmor profile.
  .PHONY: hack
  hack: snap-confine/snap-confine-debug snap-confine/snap-confine.apparmor snap-update-ns/snap-update-ns snap-seccomp/snap-seccomp snap-discard-ns/snap-discard-ns snap-device-helper/snap-device-helper snapd-apparmor/snapd-apparmor
 -	sudo install -D -m 4755 snap-confine/snap-confine-debug $(DESTDIR)$(libexecdir)/snap-confine
 +	sudo install -D -m 755 snap-confine/snap-confine-debug $(DESTDIR)$(libexecdir)/snap-confine
- 	if [ -d /etc/apparmor.d ]; then sudo install -m 644 snap-confine/snap-confine.apparmor $(DESTDIR)/etc/apparmor.d/$(patsubst .%,%,$(subst /,.,$(libexecdir))).snap-confine.real; fi
--	sudo install -d -m 755 $(DESTDIR)/var/lib/snapd/apparmor/snap-confine/
+ 	if [ -d $(DESTDIR)$(APPARMOR_SYSCONFIG) ]; then sudo install -m 644 snap-confine/snap-confine.apparmor $(DESTDIR)$(APPARMOR_SYSCONFIG)/$(patsubst .%,%,$(subst /,.,$(libexecdir))).snap-confine.real; fi
+ 	sudo install -d -m 755 $(DESTDIR)$(snapdstatedir)/apparmor/snap-confine/
  	if [ "$$(command -v apparmor_parser)" != "" ]; then sudo apparmor_parser -r snap-confine/snap-confine.apparmor; fi
- 	sudo install -m 755 snap-update-ns/snap-update-ns $(DESTDIR)$(libexecdir)/snap-update-ns
- 	sudo install -m 755 snap-discard-ns/snap-discard-ns $(DESTDIR)$(libexecdir)/snap-discard-ns
-@@ -387,18 +386,16 @@ snap-confine/snap-confine.apparmor: snap-confine/snap-confine.apparmor.in Makefi
- # patsubst strips the leading dot
- install-data-local:: snap-confine/snap-confine.apparmor
- if APPARMOR
--	install -d -m 755 $(DESTDIR)/etc/apparmor.d/
--	install -m 644 snap-confine/snap-confine.apparmor $(DESTDIR)/etc/apparmor.d/$(patsubst .%,%,$(subst /,.,$(libexecdir))).snap-confine
-+	install -d -m 755 $(out)/etc/apparmor.d/
-+	install -m 644 snap-confine/snap-confine.apparmor $(out)/etc/apparmor.d/$(patsubst .%,%,$(subst /,.,$(libexecdir))).snap-confine
- endif
--	install -d -m 755 $(DESTDIR)/var/lib/snapd/apparmor/snap-confine/
+@@ -418,7 +418,7 @@ endif
  
- # NOTE: The 'void' directory *has to* be chmod 111
- install-data-local::
--	install -d -m 111 $(DESTDIR)/var/lib/snapd/void
- 
- install-exec-hook::
+ install-exec-hook:
  # Ensure that snap-confine is u+s (setuid)
 -	chmod 4755 $(DESTDIR)$(libexecdir)/snap-confine
 +	chmod 755 $(DESTDIR)$(libexecdir)/snap-confine
  
  ##
  ## snap-mgmt
+diff --git a/cmd/configure.ac b/cmd/configure.ac
+index 9df43ac860..78c8f428b3 100644
+--- a/cmd/configure.ac
++++ b/cmd/configure.ac
+@@ -232,9 +232,6 @@ fi
+ dnl FIXME: get this via something like pkgconf once it is defined there
+ dnl FIXME: Use PKG_CHECK_VAR when we have dropped Trusty (14.04)
+ AC_ARG_VAR([SYSTEMD_PREFIX], [value for systemd prefix (overriding pkg-config)])
+-if test -z "${SYSTEMD_PREFIX}"; then
+-  SYSTEMD_PREFIX="$($PKG_CONFIG --variable=prefix systemd)"
+-fi
+ if test -n "${SYSTEMD_PREFIX}"; then
+   SYSTEMD_SYSTEM_ENV_GENERATOR_DIR="${SYSTEMD_PREFIX}/lib/systemd/system-environment-generators"
+ else
 diff --git a/cmd/libsnap-confine-private/utils.c b/cmd/libsnap-confine-private/utils.c
-index b5049c0919..23eb80e2a2 100644
+index f39e498a65..7288297508 100644
 --- a/cmd/libsnap-confine-private/utils.c
 +++ b/cmd/libsnap-confine-private/utils.c
 @@ -242,7 +242,7 @@ int sc_nonfatal_mkpath(const char *const path, mode_t mode)
  bool sc_is_expected_path(const char *path)
  {
  	const char *expected_path_re =
--	    "^(/snap/(snapd|core)/x?[0-9]+/usr/lib|/usr/lib(exec)?)/snapd/snap-confine$";
-+	    "^(/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine(-unwrapped)?$";
+-	    "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|/usr/lib(exec)?)/snapd/snap-confine$";
++	    "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine(-unwrapped)?$";
  	regex_t re;
  	if (regcomp(&re, expected_path_re, REG_EXTENDED | REG_NOSUB) != 0)
  		die("can not compile regex %s", expected_path_re);
 diff --git a/cmd/snap-confine/mount-support.c b/cmd/snap-confine/mount-support.c
-index c6f804423a..273f9e4a31 100644
+index 513c6794d2..706fedbbe4 100644
 --- a/cmd/snap-confine/mount-support.c
 +++ b/cmd/snap-confine/mount-support.c
-@@ -972,7 +972,7 @@ void sc_populate_mount_ns(struct sc_apparmor *apparmor, int snap_update_ns_fd,
+@@ -976,7 +976,7 @@ void sc_populate_mount_ns(struct sc_apparmor *apparmor, int snap_update_ns_fd,
  			{.path = "/run"},	// to get /run with sockets and what not
  			{.path = "/lib/modules",.is_optional = true},	// access to the modules of the running kernel
  			{.path = "/lib/firmware",.is_optional = true},	// access to the firmware of the running kernel
@@ -62,10 +61,10 @@ index c6f804423a..273f9e4a31 100644
  #ifdef MERGED_USR
  			{.path = "/run/media",.is_bidirectional = true,.altpath = "/media"},	// access to the users removable devices
 diff --git a/cmd/snap-confine/seccomp-support.c b/cmd/snap-confine/seccomp-support.c
-index 4722b8baf0..dd7e48318b 100644
+index 5bf3338819..1eea7ea22e 100644
 --- a/cmd/snap-confine/seccomp-support.c
 +++ b/cmd/snap-confine/seccomp-support.c
-@@ -57,10 +57,6 @@ static void validate_path_has_strict_perms(const char *path)
+@@ -83,10 +83,6 @@ static void validate_path_has_strict_perms(const char *path)
  		die("%s not root-owned %i:%i", path, stat_buf.st_uid,
  		    stat_buf.st_gid);
  	}
@@ -77,10 +76,10 @@ index 4722b8baf0..dd7e48318b 100644
  
  static void validate_bpfpath_is_safe(const char *path)
 diff --git a/cmd/snap-confine/snap-confine.c b/cmd/snap-confine/snap-confine.c
-index 29534678c1..4c27f9255f 100644
+index 6392657054..8dfb4a89e7 100644
 --- a/cmd/snap-confine/snap-confine.c
 +++ b/cmd/snap-confine/snap-confine.c
-@@ -422,7 +422,7 @@ int main(int argc, char **argv)
+@@ -436,7 +436,7 @@ int main(int argc, char **argv)
  		 * one, which definitely doesn't run in a snap-specific namespace, has a
  		 * predictable PID and is long lived.
  		 */
@@ -90,27 +89,19 @@ index 29534678c1..4c27f9255f 100644
  		int global_lock_fd = sc_lock_global();
  		// Ensure that "/" or "/snap" is mounted with the
 diff --git a/dirs/dirs.go b/dirs/dirs.go
-index f2209c9d7b..cc2ce18f2f 100644
+index f1d441ee33..4e8bc24513 100644
 --- a/dirs/dirs.go
 +++ b/dirs/dirs.go
 @@ -378,7 +378,7 @@ func SnapSystemdConfDirUnder(rootdir string) string {
- // SnapSystemdConfDirUnder returns the path to the systemd conf dir under
- // rootdir.
+ // SnapServicesDirUnder returns the path to the systemd services
+ // conf dir under rootdir.
  func SnapServicesDirUnder(rootdir string) string {
 -	return filepath.Join(rootdir, "/etc/systemd/system")
 +	return filepath.Join(rootdir, "/var/lib/snapd/nix-systemd-system")
  }
  
- // SnapBootAssetsDirUnder returns the path to boot assets directory under a
-@@ -510,14 +510,14 @@ func SetRootDir(rootdir string) {
- 	SnapRollbackDir = filepath.Join(rootdir, snappyDir, "rollback")
- 
- 	SnapBinariesDir = filepath.Join(SnapMountDir, "bin")
--	SnapServicesDir = filepath.Join(rootdir, "/etc/systemd/system")
-+	SnapServicesDir = filepath.Join(rootdir, "/var/lib/snapd/nix-systemd-system")
- 	SnapRuntimeServicesDir = filepath.Join(rootdir, "/run/systemd/system")
- 	SnapUserServicesDir = filepath.Join(rootdir, "/etc/systemd/user")
- 	SnapSystemdConfDir = SnapSystemdConfDirUnder(rootdir)
+ func SnapRuntimeServicesDirUnder(rootdir string) string {
+@@ -533,7 +533,7 @@ func SetRootDir(rootdir string) {
  	SnapSystemdDir = filepath.Join(rootdir, "/etc/systemd")
  	SnapSystemdRunDir = filepath.Join(rootdir, "/run/systemd")
  
@@ -119,7 +110,7 @@ index f2209c9d7b..cc2ce18f2f 100644
  	SnapDBusSessionPolicyDir = filepath.Join(rootdir, "/etc/dbus-1/session.d")
  	// Use 'dbus-1/services' and `dbus-1/system-services' to mirror
  	// '/usr/share/dbus-1' hierarchy.
-@@ -528,7 +528,7 @@ func SetRootDir(rootdir string) {
+@@ -544,7 +544,7 @@ func SetRootDir(rootdir string) {
  
  	CloudInstanceDataFile = filepath.Join(rootdir, "/run/cloud-init/instance-data.json")
  
@@ -128,7 +119,7 @@ index f2209c9d7b..cc2ce18f2f 100644
  
  	SnapKModModulesDir = filepath.Join(rootdir, "/etc/modules-load.d/")
  	SnapKModModprobeDir = filepath.Join(rootdir, "/etc/modprobe.d/")
-@@ -560,7 +560,7 @@ func SetRootDir(rootdir string) {
+@@ -589,7 +589,7 @@ func SetRootDir(rootdir string) {
  		// both RHEL and CentOS list "fedora" in ID_LIKE
  		DistroLibExecDir = filepath.Join(rootdir, "/usr/libexec/snapd")
  	} else {
@@ -138,10 +129,10 @@ index f2209c9d7b..cc2ce18f2f 100644
  
  	XdgRuntimeDirBase = filepath.Join(rootdir, "/run/user")
 diff --git a/interfaces/system_key.go b/interfaces/system_key.go
-index 008637492a..f4c3a42875 100644
+index d6595154b3..52df93e914 100644
 --- a/interfaces/system_key.go
 +++ b/interfaces/system_key.go
-@@ -104,7 +104,7 @@ func generateSystemKey() (*systemKey, error) {
+@@ -107,7 +107,7 @@ func generateSystemKey() (*systemKey, error) {
  	sk := &systemKey{
  		Version: systemKeyVersion,
  	}
@@ -150,20 +141,20 @@ index 008637492a..f4c3a42875 100644
  	if err != nil {
  		return nil, err
  	}
-@@ -250,7 +250,7 @@ func SystemKeyMismatch() (bool, error) {
+@@ -274,7 +274,7 @@ func SystemKeyMismatch(extraData SystemKeyExtraData) (bool, error) {
  	if mockedSystemKey == nil {
  		if exe, err := os.Readlink("/proc/self/exe"); err == nil {
  			// detect running local local builds
--			if !strings.HasPrefix(exe, "/usr") && !strings.HasPrefix(exe, "/snap") {
-+			if !strings.HasPrefix(exe, "/usr") && !strings.HasPrefix(exe, "/snap") && !strings.HasPrefix(exe, "@out@") {
+-			if !strings.HasPrefix(exe, "/usr") && !strings.HasPrefix(exe, dirs.SnapMountDir) {
++			if !strings.HasPrefix(exe, "/usr") && !strings.HasPrefix(exe, dirs.SnapMountDir) && !strings.HasPrefix(exe, "@out@") {
  				logger.Noticef("running from non-installed location %s: ignoring system-key", exe)
  				return false, ErrSystemKeyVersion
  			}
 diff --git a/snap/info.go b/snap/info.go
-index a2470c0eef..4bbd2140ba 100644
+index 96b7356e30..f481e94f8e 100644
 --- a/snap/info.go
 +++ b/snap/info.go
-@@ -1289,9 +1289,9 @@ func (app *AppInfo) launcherCommand(command string) string {
+@@ -1501,9 +1501,9 @@ func (app *AppInfo) launcherCommand(command string) string {
  		command = " " + command
  	}
  	if app.Name == app.Snap.SnapName() {
@@ -176,10 +167,10 @@ index a2470c0eef..4bbd2140ba 100644
  
  // LauncherCommand returns the launcher command line to use when invoking the
 diff --git a/systemd/systemd.go b/systemd/systemd.go
-index a2f2c34dbb..c1ed85e6c9 100644
+index a6ad62a771..e5ea856068 100644
 --- a/systemd/systemd.go
 +++ b/systemd/systemd.go
-@@ -602,6 +602,14 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+@@ -616,6 +616,14 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
  	if len(serviceNames) == 0 {
  		return nil
  	}
@@ -194,7 +185,7 @@ index a2f2c34dbb..c1ed85e6c9 100644
  	var args []string
  	if s.rootDir != "" {
  		// passing root already implies no reload
-@@ -609,6 +617,7 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+@@ -623,6 +631,7 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
  	} else {
  		args = append(args, "--no-reload")
  	}
@@ -202,7 +193,7 @@ index a2f2c34dbb..c1ed85e6c9 100644
  	args = append(args, "enable")
  	args = append(args, serviceNames...)
  	_, err := s.systemctl(args...)
-@@ -629,6 +638,14 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+@@ -643,6 +652,14 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
  	if len(serviceNames) == 0 {
  		return nil
  	}
@@ -217,7 +208,7 @@ index a2f2c34dbb..c1ed85e6c9 100644
  	var args []string
  	if s.rootDir != "" {
  		// passing root already implies no reload
-@@ -636,6 +653,7 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+@@ -650,6 +667,7 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
  	} else {
  		args = append(args, "--no-reload")
  	}

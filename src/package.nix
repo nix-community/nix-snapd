@@ -12,20 +12,20 @@
 }:
 
 let
-  version = "2.62";
+  version = "2.67";
 
   src = fetchFromGitHub {
-    owner = "snapcore";
+    owner = "canonical";
     repo = "snapd";
     rev = version;
-    hash = "sha256-4tUbPqAoaXmJIIMhnVZX+f2P2Wc+EUFR/d/yAxAKK80=";
+    hash = "sha256-WiUgLV8/Luxb3T9u1nT/rCk8YduzyyjPaCuiJszuEZU=";
   };
 
   goModules =
     (buildGoModule {
       pname = "snap-go-mod";
       inherit version src;
-      vendorHash = "sha256-1l04iE849WpIBFePEUjJcIP5akVLGy2mT1reGJCwoiM=";
+      vendorHash = "sha256-A/L4Bnx0MIvOUedF8MojXwyE09i0cImrz5fR4zqRWxM=";
     }).goModules;
 
   insecureBubblewrap = bubblewrap.overrideAttrs (o: {
@@ -163,6 +163,7 @@ stdenv.mkDerivation {
     make $makeFlagsPackaging install
     make $makeFlagsData install
     make $makeFlagsCmd install
+    rm -rf $out/var
   '';
 
   postFixup = ''

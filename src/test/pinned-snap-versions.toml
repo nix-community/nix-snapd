@@ -1,6 +1,7 @@
 [x86_64-linux]
-hash = "sha256-qWyIkUwarH1t4mZ+rrFuThARbhfguQSXR+Iag1K7H0g="
+hash = "sha256-B/iV42aWorzqU27LGDCCorR/JLw3yz9Xi9P3fw/CdMo="
 snaps = [
+    { name = "snapd", rev = 23258 },
     { name = "bare", rev = 5 },
     { name = "core", rev = 16928 },
     { name = "core20", rev = 2318 },
@@ -12,8 +13,9 @@ snaps = [
 ]
 
 [aarch64-linux]
-hash = "sha256-wzeVDwCLPxJQPFbyaVpbDncX8GJMX8uL0oliteokZZo="
+hash = "sha256-mrw+15QmGGC4JphzZijB942ef6j47wZiicWx0RUecro="
 snaps = [
+    { name = "snapd", rev = 23259 },
     { name = "bare", rev = 5 },
     { name = "core", rev = 16931 },
     { name = "core20", rev = 2321 },
