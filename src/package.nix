@@ -12,20 +12,20 @@
 }:
 
 let
-  version = "2.67";
+  version = "2.76";
 
   src = fetchFromGitHub {
     owner = "canonical";
     repo = "snapd";
     rev = version;
-    hash = "sha256-WiUgLV8/Luxb3T9u1nT/rCk8YduzyyjPaCuiJszuEZU=";
+    hash = "sha256-veC3YH/BEc1/7RsaXLwNyPKC43BCO52GhJxwl7ZZpNE=";
   };
 
   goModules =
     (buildGoModule {
       pname = "snap-go-mod";
       inherit version src;
-      vendorHash = "sha256-A/L4Bnx0MIvOUedF8MojXwyE09i0cImrz5fR4zqRWxM=";
+      vendorHash = "sha256-yBVQqWpLMHCrzjZ/wkeKipGkm5YDMWlsLZYACyNby2M=";
     }).goModules;
 
   insecureBubblewrap = bubblewrap.overrideAttrs (o: {
@@ -73,6 +73,8 @@ stdenv.mkDerivation {
     autoconf
     automake
     autoconf-archive
+    m4
+    systemd
   ];
 
   buildInputs = with pkgs; [
@@ -132,6 +134,8 @@ stdenv.mkDerivation {
     "with_apparmor=1"
     "with_core_bits=0"
     "with_alt_snap_mount_dir=0"
+    "with_vendor=1"
+    "with_static_pie=0"
   ];
 
   makeFlagsData = [
@@ -273,11 +277,10 @@ stdenv.mkDerivation {
 
         for path in /var/lib/snapd/nix-systemd-system/*; do
           name="$(basename "$path")"
+          rtpath="/run/systemd/system/$name"
+          ln -fs "$path" "$rtpath"
           if ! systemctl is-active --quiet "$name"; then
-            rtpath="/run/systemd/system/$name"
-            ln -fs "$path" "$rtpath"
-            systemctl start "$name"
-            rm -f "$rtpath"
+            systemctl start --no-block "$name" || true
           fi
         done
 
