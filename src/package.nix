@@ -284,9 +284,10 @@ stdenv.mkDerivation {
           fi
         done
 
-        # Make /snap/bin symlinks not point inside /nix/store,
-        # so they don't point to an old version of snap
-        for f in /snap/bin/*; do
+        # Make snap binary symlinks not point inside /nix/store, so they don't
+        # point to an old version of snap. snapd 2.76 can select either mount
+        # directory at runtime depending on whether /snap already exists.
+        for f in /snap/bin/* /var/lib/snapd/snap/bin/*; do
           if [[ "$(readlink "$f")" = /nix/store/* ]]; then
             rm -f "$f"
             ln -s /run/current-system/sw/bin/snap "$f"

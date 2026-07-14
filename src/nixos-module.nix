@@ -18,7 +18,7 @@ in
     snapBinInPath = lib.mkOption {
       default = true;
       example = false;
-      description = "Include /snap/bin in PATH.";
+      description = "Include the canonical and alternative snap binary directories in PATH.";
       type = lib.types.bool;
     };
 
@@ -35,7 +35,7 @@ in
 
     environment.extraInit = ''
       ${lib.optionalString cfg.snapBinInPath ''
-        export PATH="/snap/bin:$PATH"
+        export PATH="/var/lib/snapd/snap/bin:/snap/bin:$PATH"
       ''}
 
       ${lib.optionalString cfg.desktopFiles ''
