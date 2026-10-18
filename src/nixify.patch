@@ -43,7 +43,7 @@ index f39e498a65..7288297508 100644
  {
  	const char *expected_path_re =
 -	    "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|/usr/lib(exec)?)/snapd/snap-confine$";
-+	    "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine(-unwrapped)?$";
++	    "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine$";
  	regex_t re;
  	if (regcomp(&re, expected_path_re, REG_EXTENDED | REG_NOSUB) != 0)
  		die("can not compile regex %s", expected_path_re);

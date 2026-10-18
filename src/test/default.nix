@@ -81,14 +81,21 @@ nixos-lib.runTest {
       assert machine.succeed("hello-world") == "Hello World!\n"
       assert machine.succeed("su - alice -c hello-world") == "Hello World!\n"
 
+      # Ensure the caller's environment reaches the snap
+      assert machine.succeed(
+        "export SNAP_TEST_VAR=root; snap run --shell hello-world -c 'echo $SNAP_TEST_VAR'"
+      ) == "root\n"
+      assert machine.succeed(
+        "su - alice -c 'export SNAP_TEST_VAR=alice; snap run --shell hello-world -c \"echo \\$SNAP_TEST_VAR\"'"
+      ) == "alice\n"
+
       # Test gnome-calculator snap
       machine.wait_for_x()
-      machine.succeed("su - alice -c '${pkgs.xorg.xhost}/bin/xhost si:localuser:alice'")
-      machine.succeed("su - alice -c '${pkgs.xorg.xhost}/bin/xhost si:localuser:root'")
+      machine.succeed("su - alice -c '${pkgs.xhost}/bin/xhost si:localuser:alice'")
+      machine.succeed("su - alice -c '${pkgs.xhost}/bin/xhost si:localuser:root'")
       assert "Basic" not in machine.get_screen_text()
       machine.execute("su - alice -c gnome-calculator >&2 &")
       machine.wait_for_text("Basic")
-      assert "Basic" in machine.get_screen_text()
       machine.screenshot("gnome-calculator")
 
     # Ensure programs run after a crash or clean reboot

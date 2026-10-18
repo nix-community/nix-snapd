@@ -49,11 +49,11 @@ in
       services.snapd.wantedBy = [ "multi-user.target" ];
     };
 
-    security.wrappers.snap-confine-setuid-wrapper = {
+    security.wrappers.snap-confine = {
       setuid = true;
       owner = "root";
       group = "root";
-      source = "${snap}/libexec/snapd/snap-confine-stage-1";
+      source = "${snap}/libexec/snapd/snap-confine";
     };
   };
 }
