@@ -98,6 +98,24 @@ nixos-lib.runTest {
       assert "Hello Classic!" in machine.succeed("test-snapd-hello-classic")
       assert "Hello Classic!" in machine.succeed("su - alice -c test-snapd-hello-classic")
 
+      # Ensure snaps run by users don't keep root's ids
+      ids = machine.succeed("id -u alice; id -g alice").split()
+      assert machine.succeed(
+        "su - alice -c 'snap run --shell hello-world -c \"id -ru; id -u; id -rg; id -g\"'"
+      ).split() == [ids[0], ids[0], ids[1], ids[1]]
+
+      # Ensure snap-confine run by users only keeps the capabilities upstream
+      # gives it. The snap itself can't show this, because exec drops them.
+      caps = machine.succeed(
+        "su - alice -c 'SNAP_CONFINE_DEBUG=1 snap run hello-world 2>&1 >/dev/null' | grep 'caps at startup: '"
+      ).split("caps at startup: ")[1].strip()
+      expected_caps = machine.succeed(
+        "cat ${snap}/libexec/snapd/snap-confine.v2-only.caps"
+      ).strip()
+      names, flags = caps.split("=")
+      assert "p" in flags, caps
+      assert set(names.split(",")) == set(expected_caps.removesuffix("=p").split(",")), caps
+
       # Test gnome-calculator snap
       machine.wait_for_x()
       machine.succeed("su - alice -c '${pkgs.xhost}/bin/xhost si:localuser:alice'")

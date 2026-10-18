@@ -1,22 +1,22 @@
 diff --git a/cmd/snap-confine/mount-support.c b/cmd/snap-confine/mount-support.c
-index 513c679..706fedb 100644
+index fa0977a..4d015bf 100644
 --- a/cmd/snap-confine/mount-support.c
 +++ b/cmd/snap-confine/mount-support.c
-@@ -976,7 +976,7 @@ void sc_populate_mount_ns(struct sc_apparmor *apparmor, int snap_update_ns_fd,
- 			{.path = "/run"},	// to get /run with sockets and what not
- 			{.path = "/lib/modules",.is_optional = true},	// access to the modules of the running kernel
- 			{.path = "/lib/firmware",.is_optional = true},	// access to the firmware of the running kernel
--			{.path = "/usr/src"},	// FIXME: move to SecurityMounts in system-trace interface
-+			{.path = "/usr/src",.is_optional = true},	// FIXME: move to SecurityMounts in system-trace interface
- 			{.path = "/var/log"},	// FIXME: move to SecurityMounts in log-observe interface
+@@ -914,7 +914,7 @@ void sc_populate_mount_ns(struct sc_apparmor *apparmor, int snap_update_ns_fd, c
+             {.path = "/run"},            // to get /run with sockets and what not
+             {.path = "/lib/modules", .is_optional = true},   // access to the modules of the running kernel
+             {.path = "/lib/firmware", .is_optional = true},  // access to the firmware of the running kernel
+-            {.path = "/usr/src"},                            // FIXME: move to SecurityMounts in system-trace interface
++            {.path = "/usr/src", .is_optional = true},       // FIXME: move to SecurityMounts in system-trace interface
+             {.path = "/var/log"},                            // FIXME: move to SecurityMounts in log-observe interface
  #ifdef MERGED_USR
- 			{.path = "/run/media",.is_bidirectional = true,.altpath = "/media"},	// access to the users removable devices
+             {.path = "/run/media",
 diff --git a/wrappers/internal/service_unit_gen.go b/wrappers/internal/service_unit_gen.go
-index 7f06694..cc03ae9 100644
+index f0b29d2..31f134e 100644
 --- a/wrappers/internal/service_unit_gen.go
 +++ b/wrappers/internal/service_unit_gen.go
-@@ -157,6 +157,8 @@ TimeoutStopSec={{.StopTimeout.Seconds}}
- TimeoutStartSec={{.StartTimeout.Seconds}}
+@@ -187,6 +187,8 @@ TimeoutStopSec={{.StopTimeout}}
+ TimeoutStartSec={{.StartTimeout}}
  {{- end}}
  Type={{.App.Daemon}}
 +# NIX PATCH: This is needed because the FHS environment runs classic snaps in a child process

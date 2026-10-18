@@ -1,8 +1,8 @@
 diff --git a/cmd/configure.ac b/cmd/configure.ac
-index 9df43ac860..78c8f428b3 100644
+index 774609d69b..2669aae92b 100644
 --- a/cmd/configure.ac
 +++ b/cmd/configure.ac
-@@ -232,9 +232,6 @@ fi
+@@ -251,9 +251,6 @@ fi
  dnl FIXME: get this via something like pkgconf once it is defined there
  dnl FIXME: Use PKG_CHECK_VAR when we have dropped Trusty (14.04)
  AC_ARG_VAR([SYSTEMD_PREFIX], [value for systemd prefix (overriding pkg-config)])

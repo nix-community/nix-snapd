@@ -1,34 +1,46 @@
+diff --git a/cmd/libsnap-confine-private/tools-dir.h b/cmd/libsnap-confine-private/tools-dir.h
+index 93d19b1576..eef87135ff 100644
+--- a/cmd/libsnap-confine-private/tools-dir.h
++++ b/cmd/libsnap-confine-private/tools-dir.h
+@@ -28,6 +28,6 @@
+ /**
+  * Alternate location of tools directory on the host.
+  **/
+-#define SC_ALTERNATE_HOST_TOOLS_DIR "/usr/libexec/snapd"
++#define SC_ALTERNATE_HOST_TOOLS_DIR "@out@/libexec/snapd"
+ 
+ #endif /* SNAP_CONFINE_TOOLS_DIR_H */
 diff --git a/cmd/libsnap-confine-private/utils.c b/cmd/libsnap-confine-private/utils.c
-index f39e498a65..7288297508 100644
+index 4b963e94c2..04eaa9303f 100644
 --- a/cmd/libsnap-confine-private/utils.c
 +++ b/cmd/libsnap-confine-private/utils.c
-@@ -242,7 +242,7 @@ int sc_nonfatal_mkpath(const char *const path, mode_t mode)
- bool sc_is_expected_path(const char *path)
- {
- 	const char *expected_path_re =
--	    "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|/usr/lib(exec)?)/snapd/snap-confine$";
-+	    "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine$";
- 	regex_t re;
- 	if (regcomp(&re, expected_path_re, REG_EXTENDED | REG_NOSUB) != 0)
- 		die("can not compile regex %s", expected_path_re);
+@@ -217,7 +217,7 @@ int sc_nonfatal_mkpath(const char *const path, mode_t mode, uid_t uid, uid_t gid
+ 
+ bool sc_is_expected_path(const char *path) {
+     const char *expected_path_re =
+-        "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|/usr/lib(exec)?)/snapd/snap-confine$";
++        "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine$";
+     regex_t re;
+     if (regcomp(&re, expected_path_re, REG_EXTENDED | REG_NOSUB) != 0)
+         die("can not compile regex %s", expected_path_re);
 diff --git a/dirs/dirs.go b/dirs/dirs.go
-index f1d441ee33..4e8bc24513 100644
+index 6d8b67dfd2..c13e891f45 100644
 --- a/dirs/dirs.go
 +++ b/dirs/dirs.go
-@@ -589,7 +589,7 @@ func SetRootDir(rootdir string) {
- 		// both RHEL and CentOS list "fedora" in ID_LIKE
- 		DistroLibExecDir = filepath.Join(rootdir, "/usr/libexec/snapd")
- 	} else {
--		DistroLibExecDir = filepath.Join(rootdir, "/usr/lib/snapd")
-+		DistroLibExecDir = filepath.Join(rootdir, "@out@/libexec/snapd")
- 	}
+@@ -183,7 +183,7 @@ const (
+ 	// distributions
+ 	DefaultDistroLibexecDir = "/usr/lib/snapd"
+ 	// AltDistroLibexecDir is an anterlative libexec dir used on some distributions
+-	AltDistroLibexecDir = "/usr/libexec/snapd"
++	AltDistroLibexecDir = "@out@/libexec/snapd"
  
- 	XdgRuntimeDirBase = filepath.Join(rootdir, "/run/user")
+ 	// These are directories which are static inside the core snap and
+ 	// can never be prefixed as they will be always absolute once we
 diff --git a/snap/info.go b/snap/info.go
-index 96b7356e30..f481e94f8e 100644
+index 72932e6829..c050efa991 100644
 --- a/snap/info.go
 +++ b/snap/info.go
-@@ -1501,9 +1501,9 @@ func (app *AppInfo) launcherCommand(command string) string {
+@@ -1535,9 +1535,9 @@ func (app *AppInfo) launcherCommand(command string) string {
  		command = " " + command
  	}
  	if app.Name == app.Snap.SnapName() {
@@ -41,7 +53,7 @@ index 96b7356e30..f481e94f8e 100644
  
  // LauncherCommand returns the launcher command line to use when invoking the
 diff --git a/usersession/userd/launcher.go b/usersession/userd/launcher.go
-index 830ed9995c..843f628730 100644
+index 9f13874b43..a6571bc352 100644
 --- a/usersession/userd/launcher.go
 +++ b/usersession/userd/launcher.go
 @@ -206,7 +206,7 @@ func (s *Launcher) OpenURL(addr string, sender dbus.Sender) *dbus.Error {
