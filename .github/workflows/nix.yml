@@ -10,11 +10,27 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            system: x86_64-linux
+            kvm: true
+          # GitHub's arm64 runners don't expose KVM, so the VM test can't run
+          - runner: ubuntu-24.04-arm
+            system: aarch64-linux
+            kvm: false
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v3
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - uses: DeterminateSystems/flake-checker-action@main
       - run: nix build --print-build-logs
-      - run: nix flake check --print-build-logs
+      - if: matrix.kvm
+        run: nix flake check --print-build-logs
+      # Builds the NixOS test system and lints the test script without booting
+      # the VM
+      - if: ${{ !matrix.kvm }}
+        run: nix build --print-build-logs .#checks.${{ matrix.system }}.test.driver
