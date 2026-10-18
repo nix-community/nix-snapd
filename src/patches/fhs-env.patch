@@ -1,11 +1,52 @@
 diff --git a/cmd/snap-confine/snap-confine.c b/cmd/snap-confine/snap-confine.c
-index 6392657..eaa1300 100644
+index d262cc0..09a165d 100644
 --- a/cmd/snap-confine/snap-confine.c
 +++ b/cmd/snap-confine/snap-confine.c
-@@ -319,6 +319,36 @@ static void enter_non_classic_execution_environment(sc_invocation * inv,
- 						    gid_t real_gid,
- 						    gid_t saved_gid);
+@@ -303,9 +303,83 @@ static const cap_value_t snap_confine_caps_extra_cgroup_v1[] = {
+     CAP_SETGID,  // to create the freezer cgroup
+ };
  
++/**
++ * NIX PATCH: The NixOS module runs snap-confine through a setuid wrapper,
++ * but snap-confine expects the file capabilities that upstream snapd gives
++ * it and never drops root itself. So when it runs setuid, it first switches
++ * to the caller's ids, keeping only those capabilities. Those are the ones in
++ * snap-confine.v2-only.caps, plus the ones snap-confine.caps adds for cgroup
++ * v1 when the host isn't cgroup v2 only. The kernel already enabled secure
++ * mode for the setuid execution, like it does for file capabilities.
++ **/
++#define SC_NIX_CAPS "@snapConfineCaps@"
++
++static void sc_nix_drop_root(void) {
++    uid_t uid = getuid();
++    gid_t gid = getgid();
++    /* Keep the permitted capabilities across the uid change */
++    if (prctl(PR_SET_KEEPCAPS, 1) < 0) {
++        die("cannot set PR_SET_KEEPCAPS 1");
++    }
++    if (setresgid(gid, gid, gid) < 0) {
++        die("cannot set the caller's group id");
++    }
++    if (setresuid(uid, uid, uid) < 0) {
++        die("cannot set the caller's user id");
++    }
++    if (prctl(PR_SET_KEEPCAPS, 0) < 0) {
++        die("cannot set PR_SET_KEEPCAPS 0");
++    }
++    cap_t caps = cap_from_text(SC_NIX_CAPS);
++    if (caps == NULL) {
++        die("cannot parse snap-confine capabilities");
++    }
++    if (!sc_cgroup_is_v2() && cap_set_flag(caps, CAP_PERMITTED, SC_ARRAY_SIZE(snap_confine_caps_extra_cgroup_v1),
++                                           snap_confine_caps_extra_cgroup_v1, CAP_SET) != 0) {
++        die("cannot add cgroup v1 capabilities");
++    }
++    if (cap_set_proc(caps) != 0) {
++        die("cannot set snap-confine capabilities");
++    }
++    cap_free(caps);
++}
++
 +/**
 + * NIX PATCH: Classic snaps run on the host's filesystem and expect an FHS
 + * layout, so they run in the FHS environment snap-env. Other snaps don't need
@@ -17,43 +58,49 @@ index 6392657..eaa1300 100644
 + **/
 +#define SC_NIX_SNAP_ENV "@snapEnv@"
 +
-+static void sc_nix_exec_in_snap_env(int argc, char **argv)
-+{
-+	/* snap-env -c script executable args... */
-+	char **new_argv = calloc((size_t)argc + 4, sizeof *new_argv);
-+	if (new_argv == NULL) {
-+		die("cannot allocate memory");
-+	}
-+	size_t i = 0;
-+	new_argv[i++] = SC_NIX_SNAP_ENV;
-+	new_argv[i++] = "-c";
-+	new_argv[i++] = "exec \"$0\" \"$@\"";
-+	for (int j = 0; j < argc; j++) {
-+		new_argv[i++] = argv[j];
-+	}
-+	new_argv[i] = NULL;
-+	execv(SC_NIX_SNAP_ENV, new_argv);
-+	die("cannot execute %s", SC_NIX_SNAP_ENV);
++static void sc_nix_exec_in_snap_env(int argc, char **argv) {
++    /* snap-env -c script executable args... */
++    char **new_argv = calloc((size_t)argc + 4, sizeof *new_argv);
++    if (new_argv == NULL) {
++        die("cannot allocate memory");
++    }
++    size_t i = 0;
++    new_argv[i++] = SC_NIX_SNAP_ENV;
++    new_argv[i++] = "-c";
++    new_argv[i++] = "exec \"$0\" \"$@\"";
++    for (int j = 0; j < argc; j++) {
++        new_argv[i++] = argv[j];
++    }
++    new_argv[i] = NULL;
++    execv(SC_NIX_SNAP_ENV, new_argv);
++    die("cannot execute %s", SC_NIX_SNAP_ENV);
 +}
 +
- int main(int argc, char **argv)
- {
- 	sc_error *err = NULL;
-@@ -572,6 +602,9 @@ int main(int argc, char **argv)
- 	// Restore process state that was recorded earlier.
- 	sc_restore_process_state(&proc_state);
- 	log_startup_stage("snap-confine to snap-exec");
-+	if (invocation.classic_confinement) {
-+		sc_nix_exec_in_snap_env(argc, argv);
-+	}
- 	execv(invocation.executable, (char *const *)&argv[0]);
- 	perror("execv failed");
- 	return 1;
-diff --git a/cmd/snap/cmd_run.go b/cmd/snap/cmd_run.go
-index cc096a6..5d6a9ac 100644
---- a/cmd/snap/cmd_run.go
-+++ b/cmd/snap/cmd_run.go
-@@ -667,6 +667,10 @@ var osReadlink = os.Readlink
+ int main(int argc, char **argv) {
+     sc_error *err = NULL;
+ 
++    if (getuid() != 0 && geteuid() == 0) {
++        sc_nix_drop_root();
++    }
++
+     log_startup_stage("snap-confine enter");
+     sc_debug_capabilities("caps at startup");
+ 
+@@ -658,6 +732,9 @@ int main(int argc, char **argv) {
+     // Restore process state that was recorded earlier.
+     sc_restore_process_state(&proc_state);
+     log_startup_stage("snap-confine to snap-exec");
++    if (invocation.classic_confinement) {
++        sc_nix_exec_in_snap_env(argc, argv);
++    }
+     /* post exec capabilities restored as described in capabilities(7) */
+     execv(invocation.executable, (char *const *)&argv[0]);
+     perror("execv failed");
+diff --git a/cmd/snapd/cli/cmd_run.go b/cmd/snapd/cli/cmd_run.go
+index c9ddce5..572d005 100644
+--- a/cmd/snapd/cli/cmd_run.go
++++ b/cmd/snapd/cli/cmd_run.go
+@@ -759,6 +759,10 @@ var osReadlink = os.Readlink
  // snapdHelperPath return the path of a helper like "snap-confine" or
  // "snap-exec" based on if snapd is re-execed or not
  func snapdHelperPath(toolName string) (string, error) {

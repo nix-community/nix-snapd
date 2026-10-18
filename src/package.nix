@@ -10,20 +10,20 @@
 }:
 
 let
-  version = "2.67";
+  version = "2.78";
 
   src = fetchFromGitHub {
     owner = "canonical";
     repo = "snapd";
     rev = version;
-    hash = "sha256-WiUgLV8/Luxb3T9u1nT/rCk8YduzyyjPaCuiJszuEZU=";
+    hash = "sha256-bgeBD3yVVa4HZmejJhBxxWb9myvV/SNo9E06ET0cDxw=";
   };
 
   goModules =
     (buildGoModule {
       pname = "snap-go-mod";
       inherit version src;
-      vendorHash = "sha256-A/L4Bnx0MIvOUedF8MojXwyE09i0cImrz5fR4zqRWxM=";
+      vendorHash = "sha256-zvqVKcHbVOPQYVAZ06AitfjF9C4JXSFUTIzdYGXHdEI=";
     }).goModules;
 
   # The FHS environment that snap-confine runs classic snaps in
@@ -68,6 +68,7 @@ stdenv.mkDerivation {
     autoconf
     automake
     autoconf-archive
+    m4
   ];
 
   buildInputs = with pkgs; [
@@ -84,7 +85,6 @@ stdenv.mkDerivation {
   ];
 
   patches = [
-    ./patches/no-setuid-install.patch
     ./patches/systemd-prefix.patch
     ./patches/store-paths.patch
     ./patches/system-key.patch
@@ -96,7 +96,8 @@ stdenv.mkDerivation {
   configurePhase = ''
     substituteInPlace $(grep -rl '@out@') --subst-var 'out'
     substituteInPlace cmd/snap-confine/snap-confine.c \
-      --subst-var-by snapEnv ${env}/bin/snap-env
+      --subst-var-by snapEnv ${env}/bin/snap-env \
+      --subst-var-by snapConfineCaps "$(< cmd/snap-confine/snap-confine.v2-only.caps)"
 
     export GOCACHE=$TMPDIR/go-cache
 
@@ -137,6 +138,8 @@ stdenv.mkDerivation {
     "with_apparmor=1"
     "with_core_bits=0"
     "with_alt_snap_mount_dir=0"
+    "with_vendor=1"
+    "with_static_pie=0"
   ];
 
   makeFlagsData = [
@@ -151,6 +154,7 @@ stdenv.mkDerivation {
     "APPLICATIONSDIR=$(out)/share/applications"
     "SYSCONFXDGAUTOSTARTDIR=$(out)/etc/xdg/autostart"
     "ICON_FOLDER=$(out)/share/snapd"
+    "DRACUT_DIR=$(out)/lib/dracut"
   ];
 
   makeFlagsCmd = [
@@ -165,9 +169,10 @@ stdenv.mkDerivation {
   '';
 
   installPhase = ''
+    # snapd.mk links tools to snapd-tool-wrap, which cmd installs
+    make $makeFlagsCmd install
     make $makeFlagsPackaging install
     make $makeFlagsData install
-    make $makeFlagsCmd install
     rm -rf $out/var
   '';
 
@@ -207,7 +212,9 @@ stdenv.mkDerivation {
         set -uex
         shopt -s nullglob
 
-        # Pre-create directories
+        # Pre-create directories. Snapd uses /var/lib/snapd/snap as the snap
+        # mount directory unless /snap exists.
+        install -dm755 /snap
         install -dm755 /var/lib/snapd/snaps
         install -dm111 /var/lib/snapd/void
 
@@ -238,5 +245,9 @@ stdenv.mkDerivation {
           fi
         done
       ''}
+
+    # snap and snapd are the same binary, which runs the CLI unless argv[0] is
+    # snapd, so keep the daemon's wrapper out of the CLI
+    ln -sfr $out/libexec/snapd/.snapd-wrapped $out/bin/snap
   '';
 }

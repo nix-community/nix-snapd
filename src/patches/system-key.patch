@@ -1,22 +1,22 @@
 diff --git a/interfaces/system_key.go b/interfaces/system_key.go
-index d6595154b3..52df93e914 100644
+index 086a613d06..ddd62cdbb7 100644
 --- a/interfaces/system_key.go
 +++ b/interfaces/system_key.go
-@@ -107,7 +107,7 @@ func generateSystemKey() (*systemKey, error) {
+@@ -122,7 +122,7 @@ func generateSystemKey() (*systemKey, error) {
  	sk := &systemKey{
  		Version: systemKeyVersion,
  	}
 -	snapdPath, err := snapdtool.InternalToolPath("snapd")
-+	snapdPath, err := snapdtool.InternalToolPath("snapd-unwrapped")
++	snapdPath, err := snapdtool.InternalToolPath(".snapd-wrapped")
  	if err != nil {
  		return nil, err
  	}
-@@ -274,7 +274,7 @@ func SystemKeyMismatch(extraData SystemKeyExtraData) (bool, error) {
+@@ -291,7 +291,7 @@ func SystemKeyMismatch(extraData SystemKeyExtraData) (mismatch bool, myKey any,
  	if mockedSystemKey == nil {
  		if exe, err := os.Readlink("/proc/self/exe"); err == nil {
  			// detect running local local builds
 -			if !strings.HasPrefix(exe, "/usr") && !strings.HasPrefix(exe, dirs.SnapMountDir) {
 +			if !strings.HasPrefix(exe, "/usr") && !strings.HasPrefix(exe, dirs.SnapMountDir) && !strings.HasPrefix(exe, "@out@") {
  				logger.Noticef("running from non-installed location %s: ignoring system-key", exe)
- 				return false, ErrSystemKeyVersion
+ 				return false, mySystemKey, ErrSystemKeyVersion
  			}
