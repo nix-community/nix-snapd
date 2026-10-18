@@ -28,7 +28,7 @@ let
     }).goModules;
 
   insecureBubblewrap = bubblewrap.overrideAttrs (o: {
-    patches = (o.patches or [ ]) ++ [ ./bubblewrap-insecure.patch ];
+    patches = (o.patches or [ ]) ++ [ ./patches/bubblewrap-insecure.patch ];
   });
 
   buildFHSEnvInsecureBubblewrap = buildFHSEnvBubblewrap.override {
@@ -92,8 +92,13 @@ stdenv.mkDerivation {
   ];
 
   patches = [
-    ./nixify.patch
-    ./fhs-env.patch
+    ./patches/no-setuid-install.patch
+    ./patches/systemd-prefix.patch
+    ./patches/store-paths.patch
+    ./patches/system-key.patch
+    ./patches/mutable-config-dirs.patch
+    ./patches/chrootenv-compat.patch
+    ./patches/fhs-env.patch
   ];
 
   configurePhase = ''

@@ -1,0 +1,54 @@
+diff --git a/cmd/snap-confine/mount-support.c b/cmd/snap-confine/mount-support.c
+index 513c6794d2..706fedbbe4 100644
+--- a/cmd/snap-confine/mount-support.c
++++ b/cmd/snap-confine/mount-support.c
+@@ -976,7 +976,7 @@ void sc_populate_mount_ns(struct sc_apparmor *apparmor, int snap_update_ns_fd,
+ 			{.path = "/run"},	// to get /run with sockets and what not
+ 			{.path = "/lib/modules",.is_optional = true},	// access to the modules of the running kernel
+ 			{.path = "/lib/firmware",.is_optional = true},	// access to the firmware of the running kernel
+-			{.path = "/usr/src"},	// FIXME: move to SecurityMounts in system-trace interface
++			{.path = "/usr/src",.is_optional = true},	// FIXME: move to SecurityMounts in system-trace interface
+ 			{.path = "/var/log"},	// FIXME: move to SecurityMounts in log-observe interface
+ #ifdef MERGED_USR
+ 			{.path = "/run/media",.is_bidirectional = true,.altpath = "/media"},	// access to the users removable devices
+diff --git a/cmd/snap-confine/seccomp-support.c b/cmd/snap-confine/seccomp-support.c
+index 5bf3338819..1eea7ea22e 100644
+--- a/cmd/snap-confine/seccomp-support.c
++++ b/cmd/snap-confine/seccomp-support.c
+@@ -83,10 +83,6 @@ static void validate_path_has_strict_perms(const char *path)
+ 		die("%s not root-owned %i:%i", path, stat_buf.st_uid,
+ 		    stat_buf.st_gid);
+ 	}
+-
+-	if (stat_buf.st_mode & S_IWOTH) {
+-		die("%s has 'other' write %o", path, stat_buf.st_mode);
+-	}
+ }
+ 
+ static void validate_bpfpath_is_safe(const char *path)
+diff --git a/cmd/snap-confine/snap-confine.c b/cmd/snap-confine/snap-confine.c
+index 6392657054..8dfb4a89e7 100644
+--- a/cmd/snap-confine/snap-confine.c
++++ b/cmd/snap-confine/snap-confine.c
+@@ -436,7 +436,7 @@ int main(int argc, char **argv)
+ 		 * one, which definitely doesn't run in a snap-specific namespace, has a
+ 		 * predictable PID and is long lived.
+ 		 */
+-		sc_reassociate_with_pid1_mount_ns();
++		// NIX PATCH: Don't try to escape the FHS environment
+ 		// Do global initialization:
+ 		int global_lock_fd = sc_lock_global();
+ 		// Ensure that "/" or "/snap" is mounted with the
+diff --git a/wrappers/internal/service_unit_gen.go b/wrappers/internal/service_unit_gen.go
+index 7f066942fb..4a014ca981 100644
+--- a/wrappers/internal/service_unit_gen.go
++++ b/wrappers/internal/service_unit_gen.go
+@@ -157,6 +157,8 @@ TimeoutStopSec={{.StopTimeout.Seconds}}
+ TimeoutStartSec={{.StartTimeout.Seconds}}
+ {{- end}}
+ Type={{.App.Daemon}}
++# NIX PATCH: This is needed because nixpkgs's chrootenv runs the code in a child process
++NotifyAccess=all
+ {{- if .Remain}}
+ RemainAfterExit={{.Remain}}
+ {{- end}}
