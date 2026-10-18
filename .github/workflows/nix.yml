@@ -34,3 +34,21 @@ jobs:
       # the VM
       - if: ${{ !matrix.kvm }}
         run: nix build --print-build-logs .#checks.${{ matrix.system }}.test.driver
+
+  # Temporary: check whether nix-community's Namespace arm64 runners expose
+  # KVM, so the aarch64 job could run the VM test there
+  probe-kvm:
+    runs-on: nscloud-ubuntu-24.04-arm64-4x8
+    steps:
+      - run: uname -a
+      - run: |
+          if [ -c /dev/kvm ]; then
+            ls -l /dev/kvm
+            if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+              echo "KVM: available and accessible"
+            else
+              echo "KVM: device exists but isn't accessible to $(id -un)"
+            fi
+          else
+            echo "KVM: no /dev/kvm"
+          fi
