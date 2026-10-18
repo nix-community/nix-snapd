@@ -2,7 +2,6 @@
   pkgs,
   lib,
   stdenv,
-  python3,
   xdg-utils,
   writeTextDir,
   fetchFromGitHub,
@@ -41,6 +40,10 @@ let
     extraBwrapArgs = [
       "--ro-bind /etc/pam.d /etc/pam.d"
       "--ro-bind /etc/pam /etc/pam"
+      # buildFHSEnv hides /tmp/.X11-unix except for the X socket of $DISPLAY,
+      # like Flatpak. Show all of it like upstream snapd, where the x11
+      # interface decides access, so snap-confine needn't pass DISPLAY to root
+      "--ro-bind-try /tmp/.X11-unix /tmp/.X11-unix"
     ];
     targetPkgs =
       pkgs:
@@ -88,10 +91,15 @@ stdenv.mkDerivation {
     libapparmor
   ];
 
-  patches = [ ./nixify.patch ];
+  patches = [
+    ./nixify.patch
+    ./fhs-env.patch
+  ];
 
   configurePhase = ''
     substituteInPlace $(grep -rl '@out@') --subst-var 'out'
+    substituteInPlace cmd/snap-confine/snap-confine.c \
+      --subst-var-by snapEnv ${env}/bin/snap-env
 
     export GOCACHE=$TMPDIR/go-cache
 
@@ -167,63 +175,6 @@ stdenv.mkDerivation {
   '';
 
   postFixup = ''
-    mv $out/libexec/snapd/snap-confine{,-unwrapped}
-
-    cat > $out/libexec/snapd/snap-confine << EOL
-    #!${python3}/bin/python3
-    import sys, os
-    setuid_wrapper = "/run/wrappers/bin/snap-confine-setuid-wrapper"
-    path = (
-      setuid_wrapper
-      if os.path.exists(setuid_wrapper)
-      else "@out@/libexec/snapd/snap-confine-stage-1"
-    )
-    os.execv(path, [path] + sys.argv[1:])
-    EOL
-    substituteInPlace $out/libexec/snapd/snap-confine --subst-var 'out'
-    chmod +x $out/libexec/snapd/snap-confine
-
-    cat > $out/libexec/snapd/snap-confine-stage-1 << EOL
-    #!${python3}/bin/python3
-    import sys, os, json
-    os.environ["NIX_SNAP_CONFINE_DATA"] = json.dumps(dict(
-      uid=os.getuid(),
-      gid=os.getgid(),
-      args=sys.argv[1:],
-    ))
-    try:
-      os.setuid(0)
-      os.setgid(0)
-    except PermissionError:
-      raise PermissionError(" ".join((
-        "Snap-confine wasn't run as root.",
-        "Either re-run this command as root or use the NixOS module.",
-      )))
-    os.execv(
-      "${env}/bin/snap-env",
-      [
-        "${env}/bin/snap-env",
-        "-c",
-        "exec @out@/libexec/snapd/snap-confine-stage-2",
-      ],
-    )
-    EOL
-    substituteInPlace $out/libexec/snapd/snap-confine-stage-1 --subst-var 'out'
-    chmod +x $out/libexec/snapd/snap-confine-stage-1
-
-    cat > $out/libexec/snapd/snap-confine-stage-2 << EOL
-    #!${python3}/bin/python3
-    import sys, os, json
-    data = json.loads(os.environ.pop("NIX_SNAP_CONFINE_DATA"))
-    os.setresuid(data["uid"], 0, 0)
-    os.setresgid(data["gid"], 0, 0)
-    os.environ["PATH"] += ":@out@/bin"
-    unwrapped = "@out@/libexec/snapd/snap-confine-unwrapped"
-    os.execv(unwrapped, [unwrapped] + data["args"])
-    EOL
-    substituteInPlace $out/libexec/snapd/snap-confine-stage-? --subst-var 'out'
-    chmod +x $out/libexec/snapd/snap-confine-stage-2
-
     # Make xdg-open wrapper for io.snapcraft.Launcher so it can run xdg-open to
     # open with any installed program, even if it isn't a dependency
     makeWrapper ${xdg-utils}/bin/xdg-open $out/libexec/xdg-open \
