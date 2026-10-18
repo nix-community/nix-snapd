@@ -1,0 +1,77 @@
+diff --git a/cmd/libsnap-confine-private/utils.c b/cmd/libsnap-confine-private/utils.c
+index f39e498a65..7288297508 100644
+--- a/cmd/libsnap-confine-private/utils.c
++++ b/cmd/libsnap-confine-private/utils.c
+@@ -242,7 +242,7 @@ int sc_nonfatal_mkpath(const char *const path, mode_t mode)
+ bool sc_is_expected_path(const char *path)
+ {
+ 	const char *expected_path_re =
+-	    "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|/usr/lib(exec)?)/snapd/snap-confine$";
++	    "^((/var/lib/snapd)?/snap/(snapd|core)/x?[0-9]+/usr/lib|(/usr|@out@)/lib(exec)?)/snapd/snap-confine$";
+ 	regex_t re;
+ 	if (regcomp(&re, expected_path_re, REG_EXTENDED | REG_NOSUB) != 0)
+ 		die("can not compile regex %s", expected_path_re);
+diff --git a/dirs/dirs.go b/dirs/dirs.go
+index f1d441ee33..4e8bc24513 100644
+--- a/dirs/dirs.go
++++ b/dirs/dirs.go
+@@ -589,7 +589,7 @@ func SetRootDir(rootdir string) {
+ 		// both RHEL and CentOS list "fedora" in ID_LIKE
+ 		DistroLibExecDir = filepath.Join(rootdir, "/usr/libexec/snapd")
+ 	} else {
+-		DistroLibExecDir = filepath.Join(rootdir, "/usr/lib/snapd")
++		DistroLibExecDir = filepath.Join(rootdir, "@out@/libexec/snapd")
+ 	}
+ 
+ 	XdgRuntimeDirBase = filepath.Join(rootdir, "/run/user")
+diff --git a/snap/info.go b/snap/info.go
+index 96b7356e30..f481e94f8e 100644
+--- a/snap/info.go
++++ b/snap/info.go
+@@ -1501,9 +1501,9 @@ func (app *AppInfo) launcherCommand(command string) string {
+ 		command = " " + command
+ 	}
+ 	if app.Name == app.Snap.SnapName() {
+-		return fmt.Sprintf("/usr/bin/snap run%s %s", command, app.Snap.InstanceName())
++		return fmt.Sprintf("@out@/bin/snap run%s %s", command, app.Snap.InstanceName())
+ 	}
+-	return fmt.Sprintf("/usr/bin/snap run%s %s.%s", command, app.Snap.InstanceName(), app.Name)
++	return fmt.Sprintf("@out@/bin/snap run%s %s.%s", command, app.Snap.InstanceName(), app.Name)
+ }
+ 
+ // LauncherCommand returns the launcher command line to use when invoking the
+diff --git a/usersession/userd/launcher.go b/usersession/userd/launcher.go
+index 830ed9995c..843f628730 100644
+--- a/usersession/userd/launcher.go
++++ b/usersession/userd/launcher.go
+@@ -206,7 +206,7 @@ func (s *Launcher) OpenURL(addr string, sender dbus.Sender) *dbus.Error {
+ 	// this code must not add directories from the snap
+ 	// to XDG_DATA_DIRS and similar, see
+ 	// https://ubuntu.com/security/CVE-2020-11934
+-	if err := exec.Command("xdg-open", addr).Run(); err != nil {
++	if err := exec.Command("@out@/libexec/xdg-open", addr).Run(); err != nil {
+ 		return dbus.MakeFailedError(fmt.Errorf("cannot open supplied URL"))
+ 	}
+ 
+@@ -292,7 +292,7 @@ func (s *Launcher) OpenFile(parentWindow string, clientFd dbus.UnixFD, sender db
+ 		return dbus.MakeFailedError(fmt.Errorf("permission denied"))
+ 	}
+ 
+-	if err = exec.Command("xdg-open", filename).Run(); err != nil {
++	if err = exec.Command("@out@/libexec/xdg-open", filename).Run(); err != nil {
+ 		return dbus.MakeFailedError(fmt.Errorf("cannot open supplied URL"))
+ 	}
+ 
+diff --git a/wrappers/binaries.go b/wrappers/binaries.go
+index 5f88b3aff8..ca2c187b87 100644
+--- a/wrappers/binaries.go
++++ b/wrappers/binaries.go
+@@ -220,7 +220,7 @@ func EnsureSnapBinaries(s *snap.Info) (err error) {
+ 		}
+ 
+ 		appBase := filepath.Base(app.WrapperPath())
+-		binariesContent[appBase] = &osutil.SymlinkFileState{Target: "/usr/bin/snap"}
++		binariesContent[appBase] = &osutil.SymlinkFileState{Target: "@out@/bin/snap"}
+ 
+ 		if completionVariant != noCompletion && app.Completer != "" {
+ 			completersContent[appBase] = &osutil.SymlinkFileState{Target: completeSh}

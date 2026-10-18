@@ -1,0 +1,81 @@
+diff --git a/dirs/dirs.go b/dirs/dirs.go
+index f1d441ee33..4e8bc24513 100644
+--- a/dirs/dirs.go
++++ b/dirs/dirs.go
+@@ -378,7 +378,7 @@ func SnapSystemdConfDirUnder(rootdir string) string {
+ // SnapServicesDirUnder returns the path to the systemd services
+ // conf dir under rootdir.
+ func SnapServicesDirUnder(rootdir string) string {
+-	return filepath.Join(rootdir, "/etc/systemd/system")
++	return filepath.Join(rootdir, "/var/lib/snapd/nix-systemd-system")
+ }
+ 
+ func SnapRuntimeServicesDirUnder(rootdir string) string {
+@@ -533,7 +533,7 @@ func SetRootDir(rootdir string) {
+ 	SnapSystemdDir = filepath.Join(rootdir, "/etc/systemd")
+ 	SnapSystemdRunDir = filepath.Join(rootdir, "/run/systemd")
+ 
+-	SnapDBusSystemPolicyDir = filepath.Join(rootdir, "/etc/dbus-1/system.d")
++	SnapDBusSystemPolicyDir = filepath.Join(rootdir, "/var/lib/snapd/nix-dbus-system")
+ 	SnapDBusSessionPolicyDir = filepath.Join(rootdir, "/etc/dbus-1/session.d")
+ 	// Use 'dbus-1/services' and `dbus-1/system-services' to mirror
+ 	// '/usr/share/dbus-1' hierarchy.
+@@ -544,7 +544,7 @@ func SetRootDir(rootdir string) {
+ 
+ 	CloudInstanceDataFile = filepath.Join(rootdir, "/run/cloud-init/instance-data.json")
+ 
+-	SnapUdevRulesDir = filepath.Join(rootdir, "/etc/udev/rules.d")
++	SnapUdevRulesDir = filepath.Join(rootdir, "/var/lib/snapd/nix-udev-rules")
+ 
+ 	SnapKModModulesDir = filepath.Join(rootdir, "/etc/modules-load.d/")
+ 	SnapKModModprobeDir = filepath.Join(rootdir, "/etc/modprobe.d/")
+diff --git a/systemd/systemd.go b/systemd/systemd.go
+index a6ad62a771..e5ea856068 100644
+--- a/systemd/systemd.go
++++ b/systemd/systemd.go
+@@ -616,6 +616,14 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+ 	if len(serviceNames) == 0 {
+ 		return nil
+ 	}
++	for _, serviceName := range serviceNames {
++		servicePath := filepath.Join(dirs.SnapServicesDir, serviceName)
++		serviceRuntimePath := filepath.Join(dirs.SnapRuntimeServicesDir, serviceName)
++		os.Remove(serviceRuntimePath)
++		if err := os.Symlink(servicePath, serviceRuntimePath); err != nil {
++			return err
++		}
++	}
+ 	var args []string
+ 	if s.rootDir != "" {
+ 		// passing root already implies no reload
+@@ -623,6 +631,7 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+ 	} else {
+ 		args = append(args, "--no-reload")
+ 	}
++	args = append(args, "--runtime")
+ 	args = append(args, "enable")
+ 	args = append(args, serviceNames...)
+ 	_, err := s.systemctl(args...)
+@@ -643,6 +652,14 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+ 	if len(serviceNames) == 0 {
+ 		return nil
+ 	}
++	for _, serviceName := range serviceNames {
++		servicePath := filepath.Join(dirs.SnapServicesDir, serviceName)
++		serviceRuntimePath := filepath.Join(dirs.SnapRuntimeServicesDir, serviceName)
++		os.Remove(serviceRuntimePath)
++		if err := os.Symlink(servicePath, serviceRuntimePath); err != nil {
++			return err
++		}
++	}
+ 	var args []string
+ 	if s.rootDir != "" {
+ 		// passing root already implies no reload
+@@ -650,6 +667,7 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+ 	} else {
+ 		args = append(args, "--no-reload")
+ 	}
++	args = append(args, "--runtime")
+ 	args = append(args, "disable")
+ 	args = append(args, serviceNames...)
+ 	_, err := s.systemctl(args...)
