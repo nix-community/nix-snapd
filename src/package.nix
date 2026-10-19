@@ -7,7 +7,6 @@
   fetchFromGitHub,
   buildGoModule,
   buildFHSEnvBubblewrap,
-  bubblewrap,
 }:
 
 let
@@ -27,22 +26,15 @@ let
       vendorHash = "sha256-A/L4Bnx0MIvOUedF8MojXwyE09i0cImrz5fR4zqRWxM=";
     }).goModules;
 
-  insecureBubblewrap = bubblewrap.overrideAttrs (o: {
-    patches = (o.patches or [ ]) ++ [ ./patches/bubblewrap-insecure.patch ];
-  });
-
-  buildFHSEnvInsecureBubblewrap = buildFHSEnvBubblewrap.override {
-    bubblewrap = insecureBubblewrap;
-  };
-
-  env = buildFHSEnvInsecureBubblewrap {
+  # The FHS environment that snap-confine runs classic snaps in
+  env = buildFHSEnvBubblewrap {
     name = "snap-env";
     extraBwrapArgs = [
       "--ro-bind /etc/pam.d /etc/pam.d"
       "--ro-bind /etc/pam /etc/pam"
       # buildFHSEnv hides /tmp/.X11-unix except for the X socket of $DISPLAY,
-      # like Flatpak. Show all of it like upstream snapd, where the x11
-      # interface decides access, so snap-confine needn't pass DISPLAY to root
+      # like Flatpak. Show all of it like upstream snapd, where classic snaps
+      # see the host's /tmp
       "--ro-bind-try /tmp/.X11-unix /tmp/.X11-unix"
     ];
     targetPkgs =
