@@ -1,51 +1,25 @@
 diff --git a/cmd/snap-confine/snap-confine.c b/cmd/snap-confine/snap-confine.c
-index 8dfb4a8..a874c4b 100644
+index 6392657..eaa1300 100644
 --- a/cmd/snap-confine/snap-confine.c
 +++ b/cmd/snap-confine/snap-confine.c
-@@ -27,7 +27,9 @@
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
-+#include <limits.h>
- #include <sys/capability.h>
-+#include <sys/mman.h>
- #include <sys/stat.h>
- #include <sys/types.h>
- #include <sys/time.h>
-@@ -319,10 +321,229 @@ static void enter_non_classic_execution_environment(sc_invocation * inv,
+@@ -319,6 +319,36 @@ static void enter_non_classic_execution_environment(sc_invocation * inv,
  						    gid_t real_gid,
  						    gid_t saved_gid);
  
 +/**
-+ * NIX PATCH: snap-confine needs to run in the FHS environment snap-env, so
-+ * it first re-executes itself there.
++ * NIX PATCH: Classic snaps run on the host's filesystem and expect an FHS
++ * layout, so they run in the FHS environment snap-env. Other snaps don't need
++ * it, because their base snap is their root filesystem.
 + *
-+ * snap-env runs bash and bubblewrap, which have to run as root and must not
-+ * see the environment of an unprivileged caller. So when snap-confine runs
-+ * setuid, it saves the caller's environment in a memfd, becomes fully root,
-+ * and re-executes itself in snap-env with a clean environment. That instance
-+ * restores the caller's ids and environment, and re-executes itself once
-+ * more, so the kernel enables secure mode like for any setuid program.
-+ *
-+ * The environment can't just be inherited: glibc's secure mode only drops
-+ * variables that affect glibc, and bash still honors others as root, like
-+ * BASH_ENV, exported functions and SHELLOPTS. Removing those instead would
-+ * need a denylist covering everything that runs in snap-env. It isn't passed
-+ * as arguments either, because those are visible to all users in
-+ * /proc/<pid>/cmdline.
++ * This happens at the very end, when snap-confine has dropped its privileges,
++ * so snap-env and its bubblewrap run as the caller, like any program the
++ * caller could run directly.
 + **/
 +#define SC_NIX_SNAP_ENV "@snapEnv@"
-+#define SC_NIX_SNAP_CONFINE "@out@/libexec/snapd/snap-confine"
-+#define SC_NIX_IN_FHS_ENV "NIX_SNAP_CONFINE_IN_FHS_ENV"
-+#define SC_NIX_ENV_FD "NIX_SNAP_CONFINE_ENV_FD"
-+#define SC_NIX_UID "NIX_SNAP_CONFINE_UID"
-+#define SC_NIX_GID "NIX_SNAP_CONFINE_GID"
-+#define SC_NIX_MAX_ENV_SIZE (16 * 1024 * 1024)
 +
-+static void sc_nix_exec_snap_env(int argc, char **argv, const char *script,
-+				 char **envp)
++static void sc_nix_exec_in_snap_env(int argc, char **argv)
 +{
-+	/* snap-env -c script snap-confine args... */
++	/* snap-env -c script executable args... */
 +	char **new_argv = calloc((size_t)argc + 4, sizeof *new_argv);
 +	if (new_argv == NULL) {
 +		die("cannot allocate memory");
@@ -53,195 +27,28 @@ index 8dfb4a8..a874c4b 100644
 +	size_t i = 0;
 +	new_argv[i++] = SC_NIX_SNAP_ENV;
 +	new_argv[i++] = "-c";
-+	new_argv[i++] = (char *)script;
-+	new_argv[i++] = SC_NIX_SNAP_CONFINE;
-+	for (int j = 1; j < argc; j++) {
++	new_argv[i++] = "exec \"$0\" \"$@\"";
++	for (int j = 0; j < argc; j++) {
 +		new_argv[i++] = argv[j];
 +	}
 +	new_argv[i] = NULL;
-+	execve(SC_NIX_SNAP_ENV, new_argv, envp);
++	execv(SC_NIX_SNAP_ENV, new_argv);
 +	die("cannot execute %s", SC_NIX_SNAP_ENV);
-+}
-+
-+/**
-+ * sc_nix_save_env returns a sealed memfd containing the environment as
-+ * NUL-terminated strings, like /proc/<pid>/environ. It's inherited across
-+ * exec.
-+ **/
-+static int sc_nix_save_env(void)
-+{
-+	int fd = memfd_create("snap-confine-env", MFD_ALLOW_SEALING);
-+	if (fd < 0) {
-+		die("cannot create memfd for the environment");
-+	}
-+	for (char **e = environ; *e != NULL; e++) {
-+		const char *str = *e;
-+		size_t len = strlen(str) + 1;
-+		while (len > 0) {
-+			ssize_t n = write(fd, str, len);
-+			if (n < 0) {
-+				if (errno == EINTR) {
-+					continue;
-+				}
-+				die("cannot write the environment to memfd");
-+			}
-+			str += n;
-+			len -= (size_t)n;
-+		}
-+	}
-+	if (fcntl(fd, F_ADD_SEALS,
-+		  F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL) < 0) {
-+		die("cannot seal memfd for the environment");
-+	}
-+	return fd;
-+}
-+
-+static unsigned long sc_nix_parse_number(const char *str, unsigned long max)
-+{
-+	if (str == NULL || *str < '0' || *str > '9') {
-+		die("invalid snap-confine state");
-+	}
-+	char *end = NULL;
-+	errno = 0;
-+	unsigned long value = strtoul(str, &end, 10);
-+	if (errno != 0 || *end != '\0' || value > max) {
-+		die("invalid snap-confine state");
-+	}
-+	return value;
-+}
-+
-+/**
-+ * sc_nix_restore_and_exec runs inside snap-env as root. It restores the
-+ * caller's ids and the environment saved by sc_nix_save_env, and re-executes
-+ * snap-confine.
-+ **/
-+static void sc_nix_restore_and_exec(const char *fd_str, const char *uid_str,
-+				    const char *gid_str, char **argv)
-+{
-+	int fd = (int)sc_nix_parse_number(fd_str, INT_MAX);
-+	uid_t uid = (uid_t)sc_nix_parse_number(uid_str, (uid_t)-1 - 1);
-+	gid_t gid = (gid_t)sc_nix_parse_number(gid_str, (gid_t)-1 - 1);
-+
-+	struct stat st;
-+	if (fstat(fd, &st) < 0) {
-+		die("cannot inspect the saved environment");
-+	}
-+	if (!S_ISREG(st.st_mode) || st.st_size < 0
-+	    || st.st_size > SC_NIX_MAX_ENV_SIZE) {
-+		die("invalid saved environment");
-+	}
-+	size_t size = (size_t)st.st_size;
-+	/* The memfd is sealed, so its contents can't change. */
-+	const char *buf = "";
-+	if (size > 0) {
-+		buf = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-+		if (buf == MAP_FAILED) {
-+			die("cannot map the saved environment");
-+		}
-+		if (buf[size - 1] != '\0') {
-+			die("invalid saved environment");
-+		}
-+	}
-+	close(fd);
-+
-+	size_t count = 0;
-+	for (size_t i = 0; i < size; i++) {
-+		if (buf[i] == '\0') {
-+			count++;
-+		}
-+	}
-+	/* Room for the marker and the terminating NULL */
-+	char **envp = calloc(count + 2, sizeof *envp);
-+	if (envp == NULL) {
-+		die("cannot allocate memory");
-+	}
-+	size_t m = 0;
-+	for (const char *p = buf; p < buf + size; p += strlen(p) + 1) {
-+		envp[m++] = (char *)p;
-+	}
-+	envp[m++] = SC_NIX_IN_FHS_ENV "=1";
-+	envp[m] = NULL;
-+
-+	if (setresgid(gid, 0, 0) < 0) {
-+		die("cannot restore the caller's group id");
-+	}
-+	if (setresuid(uid, 0, 0) < 0) {
-+		die("cannot restore the caller's user id");
-+	}
-+	execve(SC_NIX_SNAP_CONFINE, argv, envp);
-+	die("cannot execute %s", SC_NIX_SNAP_CONFINE);
-+}
-+
-+static char *sc_nix_take_env(const char *name)
-+{
-+	const char *value = getenv(name);
-+	char *copy = value != NULL ? strdup(value) : NULL;
-+	if (unsetenv(name) < 0) {
-+		die("cannot unset %s", name);
-+	}
-+	return copy;
-+}
-+
-+static void sc_nix_ensure_fhs_env(int argc, char **argv)
-+{
-+	char *env_fd = sc_nix_take_env(SC_NIX_ENV_FD);
-+	char *uid = sc_nix_take_env(SC_NIX_UID);
-+	char *gid = sc_nix_take_env(SC_NIX_GID);
-+	char *in_fhs_env = sc_nix_take_env(SC_NIX_IN_FHS_ENV);
-+
-+	/* Only the setuid path below can make a non-root caller real root. */
-+	if (env_fd != NULL && getuid() == 0) {
-+		sc_nix_restore_and_exec(env_fd, uid, gid, argv);
-+	}
-+	/* A caller faking the marker only skips the FHS environment, which
-+	 * breaks snaps for that caller but doesn't grant anything. */
-+	if (in_fhs_env != NULL) {
-+		return;
-+	}
-+
-+	if (getuid() == 0) {
-+		/* Root can run anything anyway, so keep the environment. */
-+		sc_nix_exec_snap_env(argc, argv,
-+				     "export " SC_NIX_IN_FHS_ENV
-+				     "=1 PATH=\"$PATH:@out@/bin\"; "
-+				     "exec \"$0\" \"$@\"", environ);
-+	}
-+	if (geteuid() != 0) {
-+		die("snap-confine wasn't run as root\n"
-+		    "Either re-run this command as root or use the NixOS module.");
-+	}
-+
-+	char uid_entry[64];
-+	char gid_entry[64];
-+	sc_must_snprintf(uid_entry, sizeof uid_entry, SC_NIX_UID "=%u",
-+			 (unsigned)getuid());
-+	sc_must_snprintf(gid_entry, sizeof gid_entry, SC_NIX_GID "=%u",
-+			 (unsigned)getgid());
-+	int fd = sc_nix_save_env();
-+	if (setgid(0) < 0 || setuid(0) < 0) {
-+		die("cannot become root");
-+	}
-+	char fd_entry[64];
-+	sc_must_snprintf(fd_entry, sizeof fd_entry, SC_NIX_ENV_FD "=%d", fd);
-+	char *envp[] = {
-+		"PATH=/run/current-system/sw/bin:/usr/bin:/bin",
-+		fd_entry,
-+		uid_entry,
-+		gid_entry,
-+		NULL,
-+	};
-+	sc_nix_exec_snap_env(argc, argv, "exec \"$0\" \"$@\"", envp);
 +}
 +
  int main(int argc, char **argv)
  {
  	sc_error *err = NULL;
- 
-+	sc_nix_ensure_fhs_env(argc, argv);
-+
- 	log_startup_stage("snap-confine enter");
- 
- 	// Figure out what is the SNAP_MOUNT_DIR in practice.
+@@ -572,6 +602,9 @@ int main(int argc, char **argv)
+ 	// Restore process state that was recorded earlier.
+ 	sc_restore_process_state(&proc_state);
+ 	log_startup_stage("snap-confine to snap-exec");
++	if (invocation.classic_confinement) {
++		sc_nix_exec_in_snap_env(argc, argv);
++	}
+ 	execv(invocation.executable, (char *const *)&argv[0]);
+ 	perror("execv failed");
+ 	return 1;
 diff --git a/cmd/snap/cmd_run.go b/cmd/snap/cmd_run.go
 index cc096a6..5d6a9ac 100644
 --- a/cmd/snap/cmd_run.go

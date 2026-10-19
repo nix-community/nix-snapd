@@ -89,6 +89,15 @@ nixos-lib.runTest {
         "su - alice -c 'export SNAP_TEST_VAR=alice; snap run --shell hello-world -c \"echo \\$SNAP_TEST_VAR\"'"
       ) == "alice\n"
 
+      # Ensure snap-confine preserves the snap's mount namespace on the host
+      assert machine.succeed(
+        "findmnt -n -o FSTYPE /run/snapd/ns/hello-world.mnt"
+      ) == "nsfs\n"
+
+      # Ensure classic snaps run in the FHS environment
+      assert "Hello Classic!" in machine.succeed("test-snapd-hello-classic")
+      assert "Hello Classic!" in machine.succeed("su - alice -c test-snapd-hello-classic")
+
       # Test gnome-calculator snap
       machine.wait_for_x()
       machine.succeed("su - alice -c '${pkgs.xhost}/bin/xhost si:localuser:alice'")
