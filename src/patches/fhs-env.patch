@@ -1,10 +1,10 @@
 diff --git a/cmd/snap-confine/snap-confine.c b/cmd/snap-confine/snap-confine.c
-index 6392657..eaa1300 100644
+index d262cc0..fb717d3 100644
 --- a/cmd/snap-confine/snap-confine.c
 +++ b/cmd/snap-confine/snap-confine.c
-@@ -319,6 +319,36 @@ static void enter_non_classic_execution_environment(sc_invocation * inv,
- 						    gid_t real_gid,
- 						    gid_t saved_gid);
+@@ -303,6 +303,35 @@ static const cap_value_t snap_confine_caps_extra_cgroup_v1[] = {
+     CAP_SETGID,  // to create the freezer cgroup
+ };
  
 +/**
 + * NIX PATCH: Classic snaps run on the host's filesystem and expect an FHS
@@ -17,47 +17,46 @@ index 6392657..eaa1300 100644
 + **/
 +#define SC_NIX_SNAP_ENV "@snapEnv@"
 +
-+static void sc_nix_exec_in_snap_env(int argc, char **argv)
-+{
-+	/* snap-env -c script executable args... */
-+	char **new_argv = calloc((size_t)argc + 4, sizeof *new_argv);
-+	if (new_argv == NULL) {
-+		die("cannot allocate memory");
-+	}
-+	size_t i = 0;
-+	new_argv[i++] = SC_NIX_SNAP_ENV;
-+	new_argv[i++] = "-c";
-+	new_argv[i++] = "exec \"$0\" \"$@\"";
-+	for (int j = 0; j < argc; j++) {
-+		new_argv[i++] = argv[j];
-+	}
-+	new_argv[i] = NULL;
-+	execv(SC_NIX_SNAP_ENV, new_argv);
-+	die("cannot execute %s", SC_NIX_SNAP_ENV);
++static void sc_nix_exec_in_snap_env(int argc, char **argv) {
++    /* snap-env -c script executable args... */
++    char **new_argv = calloc((size_t)argc + 4, sizeof *new_argv);
++    if (new_argv == NULL) {
++        die("cannot allocate memory");
++    }
++    size_t i = 0;
++    new_argv[i++] = SC_NIX_SNAP_ENV;
++    new_argv[i++] = "-c";
++    new_argv[i++] = "exec \"$0\" \"$@\"";
++    for (int j = 0; j < argc; j++) {
++        new_argv[i++] = argv[j];
++    }
++    new_argv[i] = NULL;
++    execv(SC_NIX_SNAP_ENV, new_argv);
++    die("cannot execute %s", SC_NIX_SNAP_ENV);
 +}
 +
- int main(int argc, char **argv)
- {
- 	sc_error *err = NULL;
-@@ -572,6 +602,9 @@ int main(int argc, char **argv)
- 	// Restore process state that was recorded earlier.
- 	sc_restore_process_state(&proc_state);
- 	log_startup_stage("snap-confine to snap-exec");
-+	if (invocation.classic_confinement) {
-+		sc_nix_exec_in_snap_env(argc, argv);
-+	}
- 	execv(invocation.executable, (char *const *)&argv[0]);
- 	perror("execv failed");
- 	return 1;
-diff --git a/cmd/snap/cmd_run.go b/cmd/snap/cmd_run.go
-index cc096a6..5d6a9ac 100644
---- a/cmd/snap/cmd_run.go
-+++ b/cmd/snap/cmd_run.go
-@@ -667,6 +667,10 @@ var osReadlink = os.Readlink
+ int main(int argc, char **argv) {
+     sc_error *err = NULL;
+ 
+@@ -658,6 +687,9 @@ int main(int argc, char **argv) {
+     // Restore process state that was recorded earlier.
+     sc_restore_process_state(&proc_state);
+     log_startup_stage("snap-confine to snap-exec");
++    if (invocation.classic_confinement) {
++        sc_nix_exec_in_snap_env(argc, argv);
++    }
+     /* post exec capabilities restored as described in capabilities(7) */
+     execv(invocation.executable, (char *const *)&argv[0]);
+     perror("execv failed");
+diff --git a/cmd/snapd/cli/cmd_run.go b/cmd/snapd/cli/cmd_run.go
+index c9ddce5..9e1458e 100644
+--- a/cmd/snapd/cli/cmd_run.go
++++ b/cmd/snapd/cli/cmd_run.go
+@@ -759,6 +759,10 @@ var osReadlink = os.Readlink
  // snapdHelperPath return the path of a helper like "snap-confine" or
  // "snap-exec" based on if snapd is re-execed or not
  func snapdHelperPath(toolName string) (string, error) {
-+	// NIX PATCH: Use the setuid wrapper from the NixOS module if there is one
++	// NIX PATCH: Use the wrapper from the NixOS module if there is one
 +	if toolName == "snap-confine" && osutil.FileExists("/run/wrappers/bin/snap-confine") {
 +		return "/run/wrappers/bin/snap-confine", nil
 +	}

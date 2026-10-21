@@ -50,7 +50,7 @@ in
     };
 
     security.wrappers.snap-confine = {
-      setuid = true;
+      capabilities = snap.snapConfineCaps;
       owner = "root";
       group = "root";
       source = "${snap}/libexec/snapd/snap-confine";

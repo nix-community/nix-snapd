@@ -10,21 +10,24 @@
 }:
 
 let
-  version = "2.67";
+  version = "2.78";
 
   src = fetchFromGitHub {
     owner = "canonical";
     repo = "snapd";
     rev = version;
-    hash = "sha256-WiUgLV8/Luxb3T9u1nT/rCk8YduzyyjPaCuiJszuEZU=";
+    hash = "sha256-bgeBD3yVVa4HZmejJhBxxWb9myvV/SNo9E06ET0cDxw=";
   };
 
   goModules =
     (buildGoModule {
       pname = "snap-go-mod";
       inherit version src;
-      vendorHash = "sha256-A/L4Bnx0MIvOUedF8MojXwyE09i0cImrz5fR4zqRWxM=";
+      vendorHash = "sha256-zvqVKcHbVOPQYVAZ06AitfjF9C4JXSFUTIzdYGXHdEI=";
     }).goModules;
+
+  # Upstream's snap-confine.v2-only.caps, for the NixOS module's wrapper
+  snapConfineCaps = "cap_chown,cap_dac_override,cap_dac_read_search,cap_fowner,cap_sys_chroot,cap_sys_ptrace,cap_sys_admin,cap_sys_resource=p";
 
   # The FHS environment that snap-confine runs classic snaps in
   env = buildFHSEnvBubblewrap {
@@ -63,11 +66,14 @@ stdenv.mkDerivation {
   pname = "snap";
   inherit version src;
 
+  passthru = { inherit snapConfineCaps; };
+
   nativeBuildInputs = with pkgs; [
     makeWrapper
     autoconf
     automake
     autoconf-archive
+    m4
   ];
 
   buildInputs = with pkgs; [
@@ -84,7 +90,6 @@ stdenv.mkDerivation {
   ];
 
   patches = [
-    ./patches/no-setuid-install.patch
     ./patches/systemd-prefix.patch
     ./patches/store-paths.patch
     ./patches/system-key.patch
@@ -137,6 +142,8 @@ stdenv.mkDerivation {
     "with_apparmor=1"
     "with_core_bits=0"
     "with_alt_snap_mount_dir=0"
+    "with_vendor=1"
+    "with_static_pie=0"
   ];
 
   makeFlagsData = [
@@ -151,6 +158,7 @@ stdenv.mkDerivation {
     "APPLICATIONSDIR=$(out)/share/applications"
     "SYSCONFXDGAUTOSTARTDIR=$(out)/etc/xdg/autostart"
     "ICON_FOLDER=$(out)/share/snapd"
+    "DRACUT_DIR=$(out)/lib/dracut"
   ];
 
   makeFlagsCmd = [
@@ -165,9 +173,15 @@ stdenv.mkDerivation {
   '';
 
   installPhase = ''
+    if [[ "$(< ../cmd/snap-confine/snap-confine.v2-only.caps)" != ${lib.escapeShellArg snapConfineCaps} ]]; then
+      echo "snapConfineCaps doesn't match snap-confine.v2-only.caps" >&2
+      exit 1
+    fi
+
+    # snapd.mk links tools to snapd-tool-wrap, which cmd installs
+    make $makeFlagsCmd install
     make $makeFlagsPackaging install
     make $makeFlagsData install
-    make $makeFlagsCmd install
     rm -rf $out/var
   '';
 
@@ -207,7 +221,9 @@ stdenv.mkDerivation {
         set -uex
         shopt -s nullglob
 
-        # Pre-create directories
+        # Pre-create directories. Snapd uses /var/lib/snapd/snap as the snap
+        # mount directory unless /snap exists.
+        install -dm755 /snap
         install -dm755 /var/lib/snapd/snaps
         install -dm111 /var/lib/snapd/void
 
@@ -238,5 +254,9 @@ stdenv.mkDerivation {
           fi
         done
       ''}
+
+    # snap and snapd are the same binary, which runs the CLI unless argv[0] is
+    # snapd, so keep the daemon's wrapper out of the CLI
+    ln -sfr $out/libexec/snapd/.snapd-wrapped $out/bin/snap
   '';
 }
