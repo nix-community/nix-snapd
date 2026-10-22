@@ -232,18 +232,43 @@ stdenv.mkDerivation {
         # to write the unit files to /var/lib/snapd/nix-systemd-system
         # instead, and enables them as transient runtime units. However, this
         # means they won't automatically start on boot, which breaks snapd.
-        # To solve this, the next block of code starts all the unit files in
-        # /var/lib/snapd/nix-systemd-system.
+        # To solve this, the patched snapd also records which units are
+        # enabled in /var/lib/snapd/nix-systemd-system-enabled, and the next
+        # block of code starts them.
 
+        # Installs from before snapd recorded enabled units have no record, so
+        # treat all their units as enabled
+        enabled=/var/lib/snapd/nix-systemd-system-enabled
+        if [[ ! -d "$enabled" ]]; then
+          rm -rf "$enabled.tmp"
+          install -dm755 "$enabled.tmp"
+          for path in /var/lib/snapd/nix-systemd-system/*; do
+            touch "$enabled.tmp/$(basename "$path")"
+          done
+          mv "$enabled.tmp" "$enabled"
+        fi
+
+        # Link all the units before starting any, so units can find the units
+        # they depend on, like the mount units of their snaps
+        linked=()
         for path in /var/lib/snapd/nix-systemd-system/*; do
-          name="$(basename "$path")"
-          if ! systemctl is-active --quiet "$name"; then
-            rtpath="/run/systemd/system/$name"
-            ln -fs "$path" "$rtpath"
-            systemctl start "$name"
-            rm -f "$rtpath"
+          rtpath="/run/systemd/system/$(basename "$path")"
+          if [[ ! -e "$rtpath" ]]; then
+            ln -s "$path" "$rtpath"
+            linked+=("$rtpath")
           fi
         done
+
+        for path in "$enabled"/*; do
+          name="$(basename "$path")"
+          if [[ -e "/var/lib/snapd/nix-systemd-system/$name" ]] &&
+            ! systemctl is-active --quiet "$name"; then
+            # Don't let a broken snap stop snapd from starting
+            systemctl start "$name" || true
+          fi
+        done
+
+        rm -f "''${linked[@]}"
 
         # Make /snap/bin symlinks not point inside /nix/store,
         # so they don't point to an old version of snap

@@ -30,10 +30,34 @@ index c13e891f45..5676c09e76 100644
  	SnapKModModulesDir = filepath.Join(rootdir, "/etc/modules-load.d/")
  	SnapKModModprobeDir = filepath.Join(rootdir, "/etc/modprobe.d/")
 diff --git a/systemd/systemd.go b/systemd/systemd.go
-index 82cbfac3fc..c7b3ed7031 100644
+index 82cbfac3fc..77310b4d75 100644
 --- a/systemd/systemd.go
 +++ b/systemd/systemd.go
-@@ -684,6 +684,14 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+@@ -680,10 +680,38 @@ func (s *systemd) DaemonReexec() error {
+ 	return err
+ }
+ 
++// Runtime enablement doesn't survive a reboot, so record which units are
++// enabled for the snapd wrapper to start them on boot
++func markEnabled(serviceNames []string, enabled bool) error {
++	dir := filepath.Join(dirs.GlobalRootDir, "/var/lib/snapd/nix-systemd-system-enabled")
++	if err := os.MkdirAll(dir, 0755); err != nil {
++		return err
++	}
++	for _, serviceName := range serviceNames {
++		path := filepath.Join(dir, serviceName)
++		if enabled {
++			if err := os.WriteFile(path, nil, 0644); err != nil {
++				return err
++			}
++		} else if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
++			return err
++		}
++	}
++	return nil
++}
++
+ func (s *systemd) EnableNoReload(serviceNames []string) error {
  	if len(serviceNames) == 0 {
  		return nil
  	}
@@ -48,15 +72,26 @@ index 82cbfac3fc..c7b3ed7031 100644
  	var args []string
  	if s.rootDir != "" {
  		// passing root already implies no reload
-@@ -691,6 +699,7 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
+@@ -691,10 +719,16 @@ func (s *systemd) EnableNoReload(serviceNames []string) error {
  	} else {
  		args = append(args, "--no-reload")
  	}
 +	args = append(args, "--runtime")
  	args = append(args, "enable")
  	args = append(args, serviceNames...)
- 	_, err := s.systemctl(args...)
-@@ -711,6 +720,14 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+-	_, err := s.systemctl(args...)
+-	return err
++	if _, err := s.systemctl(args...); err != nil {
++		return err
++	}
++	if s.mode == SystemMode {
++		return markEnabled(serviceNames, true)
++	}
++	return nil
+ }
+ 
+ func (s *systemd) Unmask(serviceName string) error {
+@@ -711,6 +745,14 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
  	if len(serviceNames) == 0 {
  		return nil
  	}
@@ -71,11 +106,22 @@ index 82cbfac3fc..c7b3ed7031 100644
  	var args []string
  	if s.rootDir != "" {
  		// passing root already implies no reload
-@@ -718,6 +735,7 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
+@@ -718,10 +760,16 @@ func (s *systemd) DisableNoReload(serviceNames []string) error {
  	} else {
  		args = append(args, "--no-reload")
  	}
 +	args = append(args, "--runtime")
  	args = append(args, "disable")
  	args = append(args, serviceNames...)
- 	_, err := s.systemctl(args...)
+-	_, err := s.systemctl(args...)
+-	return err
++	if _, err := s.systemctl(args...); err != nil {
++		return err
++	}
++	if s.mode == SystemMode {
++		return markEnabled(serviceNames, false)
++	}
++	return nil
+ }
+ 
+ func (s *systemd) Mask(serviceName string) error {
