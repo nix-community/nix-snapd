@@ -9,28 +9,29 @@ let
 
   pinnedSnapVersions = (pkgs.lib.importTOML ./pinned-snap-versions.toml).${system};
 
-  # Download tested snaps with a fixed-output derivation because the test runner
-  # normally doesn't have internet access
-  downloadedSnaps =
-    pkgs.runCommand "${system}-downloaded-snaps"
+  # Download each tested snap with its own fixed-output derivation because the
+  # test runner normally doesn't have internet access. A snap without a hash
+  # uses a fake one, so building the test reports the hash to pin.
+  downloadSnap =
+    {
+      name,
+      rev,
+      hash ? pkgs.lib.fakeHash,
+      ...
+    }:
+    pkgs.runCommand "${name}_${toString rev}"
       {
         buildInputs = [
           snap
           pkgs.squashfsTools
         ];
         outputHashMode = "recursive";
-        outputHashAlgo = "sha256";
-        outputHash = pinnedSnapVersions.hash;
+        outputHash = hash;
       }
       ''
         mkdir $out
         cd $out
-        ${pkgs.lib.concatMapStrings (
-          { name, rev, ... }:
-          ''
-            snap download ${name} --revision=${toString rev}
-          ''
-        ) pinnedSnapVersions.snaps}
+        snap download ${name} --revision=${toString rev}
       '';
 
   # Snap with a daemon that its install hook disables, like mesa-2404 does
@@ -102,9 +103,10 @@ nixos-lib.runTest {
         name,
         rev,
         classic ? false,
-      }:
+        ...
+      }@pinned:
       let
-        path = "${downloadedSnaps}/${name}_${toString rev}";
+        path = "${downloadSnap pinned}/${name}_${toString rev}";
         classicFlag = pkgs.lib.optionalString classic "--classic";
       in
       ''
