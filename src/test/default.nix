@@ -32,6 +32,44 @@ let
           ''
         ) pinnedSnapVersions.snaps}
       '';
+
+  # Snap with a daemon that its install hook disables, like mesa-2404 does
+  servicesSnap =
+    pkgs.runCommand "test-nix-snapd-services.snap"
+      {
+        nativeBuildInputs = [
+          snap
+          pkgs.squashfsTools
+        ];
+      }
+      ''
+        mkdir -p snap/meta/hooks snap/bin
+        cat > snap/meta/snap.yaml <<'EOF'
+        name: test-nix-snapd-services
+        version: '1'
+        summary: Test snap with services
+        description: Test snap with services
+        base: core22
+        confinement: strict
+        apps:
+          enabled:
+            command: bin/sleep
+            daemon: simple
+          disabled:
+            command: bin/sleep
+            daemon: simple
+        EOF
+        cat > snap/bin/sleep <<'EOF'
+        #!/bin/sh
+        exec sleep infinity
+        EOF
+        cat > snap/meta/hooks/install <<'EOF'
+        #!/bin/sh
+        snapctl stop --disable "$SNAP_INSTANCE_NAME.disabled"
+        EOF
+        chmod +x snap/bin/sleep snap/meta/hooks/install
+        HOME=$TMPDIR snap pack snap --filename=$out
+      '';
 in
 nixos-lib.runTest {
   name = "snap";
@@ -43,7 +81,7 @@ nixos-lib.runTest {
       (import "${pkgs.path}/nixos/tests/common/x11.nix")
       self.nixosModules.default
     ];
-    virtualisation.diskSize = 2048;
+    virtualisation.diskSize = 8192;
     test-support.displayManager.auto.user = "alice";
     services.snap.enable = true;
   };
@@ -74,9 +112,15 @@ nixos-lib.runTest {
         machine.succeed("snap install ${classicFlag} ${path}.snap")
       ''
     ) pinnedSnapVersions.snaps}
+    machine.succeed("snap install --dangerous ${servicesSnap}")
 
     def run():
       machine.wait_for_unit("snapd.service")
+
+      # Ensure only enabled snap services run
+      machine.succeed("systemctl is-active snap.test-nix-snapd-services.enabled.service")
+      machine.fail("systemctl is-active snap.test-nix-snapd-services.disabled.service")
+      machine.fail("systemctl is-active snap.mesa-2404.component-monitor.service")
 
       assert machine.succeed("hello-world") == "Hello World!\n"
       assert machine.succeed("su - alice -c hello-world") == "Hello World!\n"
