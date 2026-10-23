@@ -1,3 +1,5 @@
+[![nixbot](https://nixbot.nix-community.org/badge/7cf715b8-0d43-44d1-a867-974efdb3de1a.svg)](https://nixbot.nix-community.org/repos/github/nix-community/nix-snapd)
+
 # nix-snapd
 
 Snap package for Nix and NixOS
