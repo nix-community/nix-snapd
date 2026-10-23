@@ -1,31 +1,31 @@
 [x86_64-linux]
 snaps = [
-    { name = "snapd", rev = 23258, hash = "sha256-+jmZaFooeA3ITUEDypX29zpZ7M/tzltP9XZVOpQ3jU0=" },
+    { name = "snapd", rev = 28254, hash = "sha256-0hb+eTQ3JfBHYnrARLukP4RT/kQKeVUaA1xh7OZ54pE=" },
     { name = "bare", rev = 5, hash = "sha256-XQDDfUst2Fj4r5Z8t+OCsvW4P7UfbKmyJWPQ40PFEqQ=" },
-    { name = "core", rev = 16928, hash = "sha256-TaOEIWeO7NAIhkC3agsnisJHlSaH4Xtwz4b6K4du8Ks=" },
-    { name = "core20", rev = 2318, hash = "sha256-PV8TTgf9QaYVeAMI6gKYep9bt1icdQu+nIz9PHOdM4U=" },
-    { name = "core22", rev = 1380, hash = "sha256-RGAsN/NOtAafA7TCEqJ4aMvGwpFwoaMSp7UscIH0FTE=" },
+    { name = "core", rev = 17292, hash = "sha256-IN5gup+jL7W8gCIEZETb+ZZkQxuFWNMg2SwrrTZXkts=" },
+    { name = "core20", rev = 2922, hash = "sha256-oU/Seaa8KmU3q9uDHNq8+b2WUCTRFNIeff3zyp1a0vo=" },
+    { name = "core22", rev = 2987, hash = "sha256-CJ6v5N34y237dFMspGYh6OHMGpniVzsFE4HcLSFNFJc=" },
     { name = "core24", rev = 2124, hash = "sha256-f0+2f9kd4SqeHF7CVqnIvfmK6HneVJm1NCAF7DJ0uR8=" },
-    { name = "gnome-42-2204", rev = 176, hash = "sha256-hyzpH0u8/aTTm7BOPxk4qcDA5MVmv8oAmA1G83lyq5I=" },
+    { name = "gnome-46-2404", rev = 177, hash = "sha256-3l2eziuRmvWRVkhktwtJ7wIsYksEawzJwFHHRNsuLkc=" },
     { name = "gtk-common-themes", rev = 1535, hash = "sha256-An+VJRVcMXZHAl6ifaMtVMFoYCiZLGX48Oa54IhlH7s=" },
-    { name = "gnome-calculator", rev = 955, hash = "sha256-h/WOXykgK+iXq7X4aknR7ypeLYRmXUnVprdj0p/+i/0=" },
     { name = "mesa-2404", rev = 1839, hash = "sha256-byyy2Q7zclcVnfKzEe8/fcn6a2YtTwlBMLz9fn9jxK4=" },
+    { name = "gnome-calculator", rev = 972, hash = "sha256-kPu//q+gqbqLWAVzWGseeNYHzs1lWVQkBiJHoMXYEWc=" },
     { name = "hello-world", rev = 29, hash = "sha256-3SbjAftLqHg5Fl/irLMw/Q1jlYeHXlMTvySElgn80nM=" },
     { name = "test-snapd-hello-classic", rev = 1, classic = true, hash = "sha256-T7y33O4bePbpHA9wFUT7mEZkOMrfpSH4b7h5oa9zd+Y=" },
 ]
 
 [aarch64-linux]
 snaps = [
-    { name = "snapd", rev = 23259, hash = "sha256-9ndQXznShGKl/3cK691G5OhqUyf30Gkw6/Oa9sSeQws=" },
+    { name = "snapd", rev = 28255, hash = "sha256-r3wpgMpeAP4SHRDvY7mCBAkhmCN6BrU/KAH1+3NHukY=" },
     { name = "bare", rev = 5, hash = "sha256-XQDDfUst2Fj4r5Z8t+OCsvW4P7UfbKmyJWPQ40PFEqQ=" },
-    { name = "core", rev = 16931, hash = "sha256-TrbhhL0T73Zldp/0YDCYGZwAEwUIn47eUltbwvVOyGM=" },
-    { name = "core20", rev = 2321, hash = "sha256-671qYpthbxvaDAbRAeerGFYvG6zqAGaI2oa59No9+0Q=" },
-    { name = "core22", rev = 1383, hash = "sha256-gy3Ta7HfjsCcQmiDZsjzxGmBkmRENcFXmVosXtaOpKE=" },
+    { name = "core", rev = 17290, hash = "sha256-PCPjUObKutB3o1V7ORMSMcB+wqB4fCmy/WOY0XsO2ig=" },
+    { name = "core20", rev = 2924, hash = "sha256-tZLJ4cqT4To/Tpa3/0NmpRIQX30blBDy7Ej2wXJL0jM=" },
+    { name = "core22", rev = 2988, hash = "sha256-JkydJ+eJ9cEfhlN1oFze6Xj9AzFscClEIbp/4Wt3rY4=" },
     { name = "core24", rev = 2125, hash = "sha256-HlgFuYaEoYWgCuhQTMUuRzu1TmcxzaK2p6heovEXSws=" },
-    { name = "gnome-42-2204", rev = 178, hash = "sha256-XKpum9clKHBgI0YOKZoq8wbx7tKbEJLTEvsheTbd9fA=" },
+    { name = "gnome-46-2404", rev = 176, hash = "sha256-ZDwVzN/EaBHjqnF9uyxz/XdsgC6aTetlnPGOtYLteew=" },
     { name = "gtk-common-themes", rev = 1535, hash = "sha256-An+VJRVcMXZHAl6ifaMtVMFoYCiZLGX48Oa54IhlH7s=" },
-    { name = "gnome-calculator", rev = 956, hash = "sha256-b/81eFCw7HOpPA6oCkupkup1C82srHkFLpnrvIlx4iE=" },
     { name = "mesa-2404", rev = 1836, hash = "sha256-OK+4xuV1nepdpPAFUB4g0/vekTeonVVXHoz2Na+m2UY=" },
+    { name = "gnome-calculator", rev = 973, hash = "sha256-fyGdjoFqMm3xsdayBG2nhlg8cGfcYuyWGPMPKVtmhC8=" },
     { name = "hello-world", rev = 29, hash = "sha256-3SbjAftLqHg5Fl/irLMw/Q1jlYeHXlMTvySElgn80nM=" },
     { name = "test-snapd-hello-classic", rev = 9, classic = true, hash = "sha256-G2KW7zwdiWyodnMz3WRQ1MtTNvKqFCj6BI//lxr+9EQ=" },
 ]
