@@ -83,6 +83,8 @@ nixos-lib.runTest {
       self.nixosModules.default
     ];
     virtualisation.diskSize = 8192;
+    # Builders without a sandbox would otherwise give the test internet access
+    virtualisation.restrictNetwork = true;
     test-support.displayManager.auto.user = "alice";
     services.snap.enable = true;
   };
