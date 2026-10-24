@@ -71,6 +71,62 @@ let
         chmod +x snap/bin/sleep snap/meta/hooks/install
         HOME=$TMPDIR snap pack snap --filename=$out
       '';
+
+  # Snap with font layouts over host paths that are symlinks on NixOS, like
+  # pieces-os had (https://github.com/nix-community/nix-snapd/issues/4)
+  fontsSnap =
+    pkgs.runCommand "test-nix-snapd-fonts.snap"
+      {
+        nativeBuildInputs = [
+          snap
+          pkgs.squashfsTools
+        ];
+      }
+      ''
+        mkdir -p snap/meta snap/bin snap/etc/fonts snap/usr/share/fonts
+        cat > snap/meta/snap.yaml <<'EOF'
+        name: test-nix-snapd-fonts
+        version: '1'
+        summary: Test snap with font layouts
+        description: Test snap with font layouts
+        base: core22
+        confinement: strict
+        apps:
+          test-nix-snapd-fonts:
+            command: bin/cat-fonts
+        layout:
+          /etc/fonts:
+            bind: $SNAP/etc/fonts
+          /usr/share/fonts:
+            bind: $SNAP/usr/share/fonts
+          /var/cache/fontconfig:
+            bind: $SNAP_DATA/var/cache/fontconfig
+        EOF
+        cat > snap/bin/cat-fonts <<'EOF'
+        #!/bin/sh
+        exec cat /etc/fonts/test /usr/share/fonts/test
+        EOF
+        echo "Snap fonts.conf" > snap/etc/fonts/test
+        echo "Snap font" > snap/usr/share/fonts/test
+        chmod +x snap/bin/cat-fonts
+        HOME=$TMPDIR snap pack snap --filename=$out
+      '';
+
+  # Electron snaps to test, with the title of the window each opens and text it
+  # shows offline. They're only tested where they're pinned, because they don't
+  # support every system.
+  electronSnaps =
+    pkgs.lib.filterAttrs (name: _: pkgs.lib.any (pinned: pinned.name == name) pinnedSnapVersions.snaps)
+      {
+        proton-pass = {
+          title = "Proton Pass";
+          text = "Free password manager";
+        };
+        proton-mail = {
+          title = "Proton Mail";
+          text = "Cannot establish connection";
+        };
+      };
 in
 nixos-lib.runTest {
   name = "snap";
@@ -117,6 +173,7 @@ nixos-lib.runTest {
       ''
     ) pinnedSnapVersions.snaps}
     machine.succeed("snap install --dangerous ${servicesSnap}")
+    machine.succeed("snap install --dangerous ${fontsSnap}")
 
     def run():
       machine.wait_for_unit("snapd.service")
@@ -141,6 +198,16 @@ nixos-lib.runTest {
       assert machine.succeed(
         "findmnt -n -o FSTYPE /run/snapd/ns/hello-world.mnt"
       ) == "nsfs\n"
+
+      # Ensure layouts replace host symlinks only in the snap's namespace
+      assert machine.succeed("test-nix-snapd-fonts") == "Snap fonts.conf\nSnap font\n"
+      assert machine.succeed("su - alice -c test-nix-snapd-fonts") == "Snap fonts.conf\nSnap font\n"
+      machine.succeed("test -L /etc/fonts")
+
+      # Ensure hooks and daemons of snaps with layouts and content work
+      machine.wait_for_unit("snap.nordvpn.nordvpnd.service")
+      assert "NordVPN Version" in machine.succeed("nordvpn --version")
+      machine.succeed("snap set icloud-for-linux test-nix-snapd=1")
 
       # Ensure classic snaps run in the FHS environment
       assert "Hello Classic!" in machine.succeed("test-snapd-hello-classic")
@@ -172,6 +239,15 @@ nixos-lib.runTest {
       machine.execute("su - alice -c gnome-calculator >&2 &")
       machine.wait_for_text("Basic")
       machine.screenshot("gnome-calculator")
+
+      # Test Electron snaps, closing each to save memory
+      for name, app in ${builtins.toJSON electronSnaps}.items():
+        assert app["text"] not in machine.get_screen_text()
+        machine.execute(f"su - alice -c {name} >&2 &")
+        machine.wait_for_text(app["text"])
+        machine.screenshot(name)
+        machine.succeed(f"pkill -f /snap/{name}/")
+        machine.wait_until_fails(f"${pkgs.xwininfo}/bin/xwininfo -display :0 -name '{app['title']}'")
 
     # Ensure programs run after a crash or clean reboot
     run()
