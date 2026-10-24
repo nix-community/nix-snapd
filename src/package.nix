@@ -96,6 +96,7 @@ stdenv.mkDerivation {
     ./patches/mutable-config-dirs.patch
     ./patches/chrootenv-compat.patch
     ./patches/fhs-env.patch
+    ./patches/layout-symlinks.patch
   ];
 
   configurePhase = ''

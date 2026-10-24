@@ -1,0 +1,28 @@
+diff --git a/cmd/snap-update-ns/change.go b/cmd/snap-update-ns/change.go
+index 2f4b618..7043b64 100644
+--- a/cmd/snap-update-ns/change.go
++++ b/cmd/snap-update-ns/change.go
+@@ -159,6 +159,23 @@ func (c *Change) ensureTarget(as *Assumptions) ([]*Change, error) {
+ 	// that change it.
+ 	fi, err := osLstat(path)
+ 
++	// NIX PATCH: NixOS makes paths like /etc/fonts symlinks into /etc/static,
++	// so replace a symlink in the way of a layout with what the layout needs.
++	// The writable mimic keeps this from affecting the host.
++	if err == nil && fi.Mode()&os.ModeSymlink != 0 && (kind == "" || kind == "file") && c.Entry.XSnapdOrigin() == "layout" {
++		dir := filepath.Dir(path)
++		logger.Debugf("need to create writable mimic in order to replace symlink %q (mount entry id: %q)", path, c.Entry.XSnapdEntryID())
++		changes, err = createWritableMimic(dir, c.Entry.XSnapdEntryID(), as)
++		if err != nil {
++			return nil, fmt.Errorf("cannot create writable mimic over %q: %s", dir, err)
++		}
++		if err := osRemove(path); err != nil {
++			return changes, err
++		}
++		_, err = c.createPath(path, false, as)
++		return changes, err
++	}
++
+ 	if err == nil {
+ 		// If the element already exists we just need to ensure it is of
+ 		// the correct type. The desired type depends on the kind of entry
