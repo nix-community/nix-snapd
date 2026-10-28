@@ -1,4 +1,8 @@
-{ self, pkgs }:
+{
+  self,
+  pkgs,
+  apparmor,
+}:
 
 let
   nixos-lib = import "${pkgs.path}/nixos/lib" { };
@@ -112,24 +116,31 @@ let
         HOME=$TMPDIR snap pack snap --filename=$out
       '';
 
-  # Electron snaps to test, with the title of the window each opens and text it
-  # shows offline. They're only tested where they're pinned, because they don't
-  # support every system.
-  electronSnaps =
+  # Browser-based snaps to test, with the command to run, the title of the
+  # window it opens and text it shows offline. They're only tested where
+  # they're pinned, because they don't support every system.
+  browserSnaps =
     pkgs.lib.filterAttrs (name: _: pkgs.lib.any (pinned: pinned.name == name) pinnedSnapVersions.snaps)
       {
         proton-pass = {
+          command = "proton-pass";
           title = "Proton Pass";
           text = "Free password manager";
         };
         proton-mail = {
+          command = "proton-mail";
           title = "Proton Mail";
           text = "Cannot establish connection";
+        };
+        icloud-for-linux = {
+          command = "icloud-for-linux.calendar";
+          title = "iCloud Calendar";
+          text = "Error resolving";
         };
       };
 in
 nixos-lib.runTest {
-  name = "snap";
+  name = if apparmor then "snap" else "snap-without-apparmor";
   hostPkgs = pkgs;
 
   nodes.machine = {
@@ -143,6 +154,7 @@ nixos-lib.runTest {
     virtualisation.restrictNetwork = true;
     test-support.displayManager.auto.user = "alice";
     services.snap.enable = true;
+    security.apparmor.enable = apparmor;
   };
 
   enableOCR = true;
@@ -182,6 +194,13 @@ nixos-lib.runTest {
       machine.succeed("systemctl is-active snap.test-nix-snapd-services.enabled.service")
       machine.fail("systemctl is-active snap.test-nix-snapd-services.disabled.service")
       machine.fail("systemctl is-active snap.mesa-2404.component-monitor.service")
+
+      # Ensure AppArmor confines snaps
+      if ${if apparmor then "True" else "False"}:
+        assert machine.succeed(
+          "cat /proc/$(systemctl show -P MainPID snap.test-nix-snapd-services.enabled.service)/attr/current"
+        ) == "snap.test-nix-snapd-services.enabled (enforce)\n"
+        machine.fail("snap run --shell hello-world -c 'cat /etc/shadow'")
 
       assert machine.succeed("hello-world") == "Hello World!\n"
       assert machine.succeed("su - alice -c hello-world") == "Hello World!\n"
@@ -240,10 +259,10 @@ nixos-lib.runTest {
       machine.wait_for_text("Basic")
       machine.screenshot("gnome-calculator")
 
-      # Test Electron snaps, closing each to save memory
-      for name, app in ${builtins.toJSON electronSnaps}.items():
+      # Test browser-based snaps, closing each to save memory
+      for name, app in ${builtins.toJSON browserSnaps}.items():
         assert app["text"] not in machine.get_screen_text()
-        machine.execute(f"su - alice -c {name} >&2 &")
+        machine.execute(f"su - alice -c {app['command']} >&2 &")
         machine.wait_for_text(app["text"])
         machine.screenshot(name)
         machine.succeed(f"pkill -f /snap/{name}/")

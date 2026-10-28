@@ -97,12 +97,15 @@ stdenv.mkDerivation {
     ./patches/chrootenv-compat.patch
     ./patches/fhs-env.patch
     ./patches/layout-symlinks.patch
+    ./patches/apparmor.patch
   ];
 
   configurePhase = ''
     substituteInPlace $(grep -rl '@out@') --subst-var 'out'
     substituteInPlace cmd/snap-confine/snap-confine.c \
       --subst-var-by snapEnv ${env}/bin/snap-env
+    substituteInPlace sandbox/apparmor/apparmor.go \
+      --subst-var-by apparmorParser ${pkgs.apparmor-parser}/bin
 
     export GOCACHE=$TMPDIR/go-cache
 
@@ -184,6 +187,10 @@ stdenv.mkDerivation {
     make $makeFlagsPackaging install
     make $makeFlagsData install
     rm -rf $out/var
+
+    # Name snap-confine's AppArmor profile like snapd expects in /etc/apparmor.d,
+    # where the NixOS module puts it, instead of after its path in the store
+    mv $out/etc/apparmor.d/*.snap-confine $out/etc/apparmor.d/usr.lib.snapd.snap-confine
   '';
 
   postFixup = ''
@@ -219,66 +226,70 @@ stdenv.mkDerivation {
         )
       } \
       --run ${lib.escapeShellArg ''
-        set -uex
-        shopt -s nullglob
+        # snapd-tool-wrap runs snapd's tools through this wrapper with the tool's
+        # name as an argument, so only prepare the system for the daemon
+        if [[ $# -eq 0 ]]; then
+          set -uex
+          shopt -s nullglob
 
-        # Pre-create directories. Snapd uses /var/lib/snapd/snap as the snap
-        # mount directory unless /snap exists.
-        install -dm755 /snap
-        install -dm755 /var/lib/snapd/snaps
-        install -dm111 /var/lib/snapd/void
+          # Pre-create directories. Snapd uses /var/lib/snapd/snap as the snap
+          # mount directory unless /snap exists.
+          install -dm755 /snap
+          install -dm755 /var/lib/snapd/snaps
+          install -dm111 /var/lib/snapd/void
 
-        # Upstream snapd writes unit files to /etc/systemd/system, which is
-        # immutable on NixOS. This package works around that by patching snapd
-        # to write the unit files to /var/lib/snapd/nix-systemd-system
-        # instead, and enables them as transient runtime units. However, this
-        # means they won't automatically start on boot, which breaks snapd.
-        # To solve this, the patched snapd also records which units are
-        # enabled in /var/lib/snapd/nix-systemd-system-enabled, and the next
-        # block of code starts them.
+          # Upstream snapd writes unit files to /etc/systemd/system, which is
+          # immutable on NixOS. This package works around that by patching snapd
+          # to write the unit files to /var/lib/snapd/nix-systemd-system
+          # instead, and enables them as transient runtime units. However, this
+          # means they won't automatically start on boot, which breaks snapd.
+          # To solve this, the patched snapd also records which units are
+          # enabled in /var/lib/snapd/nix-systemd-system-enabled, and the next
+          # block of code starts them.
 
-        # Installs from before snapd recorded enabled units have no record, so
-        # treat all their units as enabled
-        enabled=/var/lib/snapd/nix-systemd-system-enabled
-        if [[ ! -d "$enabled" ]]; then
-          rm -rf "$enabled.tmp"
-          install -dm755 "$enabled.tmp"
+          # Installs from before snapd recorded enabled units have no record, so
+          # treat all their units as enabled
+          enabled=/var/lib/snapd/nix-systemd-system-enabled
+          if [[ ! -d "$enabled" ]]; then
+            rm -rf "$enabled.tmp"
+            install -dm755 "$enabled.tmp"
+            for path in /var/lib/snapd/nix-systemd-system/*; do
+              touch "$enabled.tmp/$(basename "$path")"
+            done
+            mv "$enabled.tmp" "$enabled"
+          fi
+
+          # Link all the units before starting any, so units can find the units
+          # they depend on, like the mount units of their snaps
+          linked=()
           for path in /var/lib/snapd/nix-systemd-system/*; do
-            touch "$enabled.tmp/$(basename "$path")"
+            rtpath="/run/systemd/system/$(basename "$path")"
+            if [[ ! -e "$rtpath" ]]; then
+              ln -s "$path" "$rtpath"
+              linked+=("$rtpath")
+            fi
           done
-          mv "$enabled.tmp" "$enabled"
+
+          for path in "$enabled"/*; do
+            name="$(basename "$path")"
+            if [[ -e "/var/lib/snapd/nix-systemd-system/$name" ]] &&
+              ! systemctl is-active --quiet "$name"; then
+              # Don't let a broken snap stop snapd from starting
+              systemctl start "$name" || true
+            fi
+          done
+
+          rm -f "''${linked[@]}"
+
+          # Make /snap/bin symlinks not point inside /nix/store,
+          # so they don't point to an old version of snap
+          for f in /snap/bin/*; do
+            if [[ "$(readlink "$f")" = /nix/store/* ]]; then
+              rm -f "$f"
+              ln -s /run/current-system/sw/bin/snap "$f"
+            fi
+          done
         fi
-
-        # Link all the units before starting any, so units can find the units
-        # they depend on, like the mount units of their snaps
-        linked=()
-        for path in /var/lib/snapd/nix-systemd-system/*; do
-          rtpath="/run/systemd/system/$(basename "$path")"
-          if [[ ! -e "$rtpath" ]]; then
-            ln -s "$path" "$rtpath"
-            linked+=("$rtpath")
-          fi
-        done
-
-        for path in "$enabled"/*; do
-          name="$(basename "$path")"
-          if [[ -e "/var/lib/snapd/nix-systemd-system/$name" ]] &&
-            ! systemctl is-active --quiet "$name"; then
-            # Don't let a broken snap stop snapd from starting
-            systemctl start "$name" || true
-          fi
-        done
-
-        rm -f "''${linked[@]}"
-
-        # Make /snap/bin symlinks not point inside /nix/store,
-        # so they don't point to an old version of snap
-        for f in /snap/bin/*; do
-          if [[ "$(readlink "$f")" = /nix/store/* ]]; then
-            rm -f "$f"
-            ln -s /run/current-system/sw/bin/snap "$f"
-          fi
-        done
       ''}
 
     # snap and snapd are the same binary, which runs the CLI unless argv[0] is

@@ -43,10 +43,27 @@ in
       ''}
     '';
 
+    # snap-confine only runs for users when its own profile confines it
+    security.apparmor.policies = lib.mkIf config.security.apparmor.enable {
+      "usr.lib.snapd.snap-confine".path = "${snap}/etc/apparmor.d/usr.lib.snapd.snap-confine";
+    };
+
     systemd = {
       packages = [ snap ];
       sockets.snapd.wantedBy = [ "sockets.target" ];
       services.snapd.wantedBy = [ "multi-user.target" ];
+      # Load the profiles of snaps on boot, and again when apparmor.service
+      # restarts, which unloads every profile
+      services."snapd.apparmor" = lib.mkIf config.security.apparmor.enable {
+        wantedBy = [ "multi-user.target" ];
+        partOf = [ "apparmor.service" ];
+      };
+      # apparmor.service removes unknown profiles when it reloads, like on
+      # nixos-rebuild switch, so load the profiles of snaps again before it
+      # finishes
+      services.apparmor.serviceConfig.ExecReload = lib.mkIf config.security.apparmor.enable (
+        lib.mkAfter [ "${snap}/libexec/snapd/snapd-apparmor start" ]
+      );
     };
 
     security.wrappers.snap-confine = {
