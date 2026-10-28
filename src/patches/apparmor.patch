@@ -1,0 +1,63 @@
+diff --git a/cmd/snap-confine/snap-confine.apparmor.in b/cmd/snap-confine/snap-confine.apparmor.in
+index 1cea1dc2..e4a46a5f 100644
+--- a/cmd/snap-confine/snap-confine.apparmor.in
++++ b/cmd/snap-confine/snap-confine.apparmor.in
+@@ -10,7 +10,10 @@ profile @LIBEXECDIR@/snap-confine flags=(attach_disconnected) {
+     #
+     # Those are discussed on https://forum.snapcraft.io/t/snapd-vs-upstream-kernel-vs-apparmor
+     # and https://forum.snapcraft.io/t/snaps-and-nfs-home/
+-    #include "/var/lib/snapd/apparmor/snap-confine"
++    #
++    # NIX PATCH: The NixOS module loads this profile at boot, before snapd
++    # creates this directory
++    include if exists "/var/lib/snapd/apparmor/snap-confine"
+ 
+     # We run privileged, so be fanatical about what we include and don't use
+     # any abstractions
+@@ -48,6 +51,10 @@ profile @LIBEXECDIR@/snap-confine flags=(attach_disconnected) {
+ 
+     @LIBEXECDIR@/snap-confine mr,
+ 
++    # NIX PATCH: snap-confine links to libraries in the Nix store, and files in
++    # /etc link into it too. The store is world-readable anyway.
++    /nix/store/** mr,
++
+     # This rule is needed when executing from a "base: core" devmode snap on 
+     # UC18 and newer where the /usr/lib/snapd/snap-confine inside the 
+     # "base: core" mount namespace always comes from the snapd snap, and thus
+@@ -589,6 +596,8 @@ profile @LIBEXECDIR@/snap-confine flags=(attach_disconnected) {
+     # have a dedicated profile so we need to inherit snap-confine's profile.
+ 
+     /usr/lib{,exec,64}/snapd/snap-discard-ns rix,
++    # NIX PATCH: Allow snap-discard-ns from the Nix store
++    @LIBEXECDIR@/snap-discard-ns rix,
+     /var/lib/snapd/hostfs/usr/lib{,exec,64}/snapd/snap-discard-ns rix,
+     /{,var/lib/snapd/}snap/{core,snapd}/*/usr/lib/snapd/snap-discard-ns rix,
+     /var/lib/snapd/hostfs/{,var/lib/snapd/}snap/{core,snapd}/*/usr/lib/snapd/snap-discard-ns rix,
+diff --git a/interfaces/apparmor/template.go b/interfaces/apparmor/template.go
+index 702b0735..51da432f 100644
+--- a/interfaces/apparmor/template.go
++++ b/interfaces/apparmor/template.go
+@@ -1008,6 +1008,8 @@ profile snap-update-ns.###SNAP_INSTANCE_NAME### flags=(attach_disconnected) {
+   # The next four rules mirror those above. We want to be able to read
+   # and map snap-update-ns into memory but it may come from a variety of places.
+   /usr/lib{,exec,64}/snapd/snap-update-ns mr,
++  # NIX PATCH: Allow snap-update-ns from the Nix store
++  @out@/libexec/snapd/snap-update-ns mr,
+   /var/lib/snapd/hostfs/usr/lib{,exec,64}/snapd/snap-update-ns mr,
+   /{,var/lib/snapd/}snap/{core,snapd}/*/usr/lib/snapd/snap-update-ns mr,
+   /var/lib/snapd/hostfs/{,var/lib/snapd/}snap/core/*/usr/lib/snapd/snap-update-ns mr,
+diff --git a/sandbox/apparmor/apparmor.go b/sandbox/apparmor/apparmor.go
+index 3797f2a5..971d30c4 100644
+--- a/sandbox/apparmor/apparmor.go
++++ b/sandbox/apparmor/apparmor.go
+@@ -554,7 +554,8 @@ var (
+ 	// Since AppArmorParserMtime() will be called by generateKey() in
+ 	// system-key and that could be called by different users on the
+ 	// system, use a predictable search path for finding the parser.
+-	parserSearchPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
++	// NIX PATCH: Also search the apparmor_parser that snapd was built with
++	parserSearchPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:@apparmorParser@"
+ 
+ 	// hostAbi30File is the path to the apparmor "3.0" ABI file and is typically
+ 	// /etc/apparmor.d/abi/3.0. It is not present on all systems. It is notably
